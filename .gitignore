@@ -1,0 +1,70 @@
+# === Dependencias instaladas (regenerables con npm install) ===
+node_modules/
+**/node_modules/
+
+# === Artefactos de build del frontend (regenerables con npm run build) ===
+dist/
+**/dist/
+dist-ssr/
+*.local
+
+# === Cachés de Vite / herramientas JS ===
+.vite/
+**/.vite/
+**/.vite-temp/
+.cache/
+.eslintcache
+.turbo/
+
+# === Artefactos de Rust / Tauri (regenerables con cargo build) ===
+# NOTA: Cargo.lock SÍ se versiona (no aparece aquí a propósito).
+target/
+**/target/
+**/*.rs.bk
+
+# === Proyecto Android generado por Tauri (regenerable con tauri android init) ===
+src-tauri/gen/android/
+astrim-recepcion/src-tauri/gen/android/
+src-tauri/gen/apple/
+astrim-recepcion/src-tauri/gen/apple/
+
+# === Base de datos local de la app (datos de ejecución, no código) ===
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# === Metadatos de sistema operativo ===
+.DS_Store
+**/.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# === Editores / IDE ===
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# === Logs y temporales ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+
+# === Variables de entorno (por si se añaden en el futuro) ===
+.env
+.env.local
+.env.*.local
+!.env.example
