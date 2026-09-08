@@ -21,19 +21,21 @@ export function Avatar({ name, photoPath, className }: AvatarProps) {
 
   if (photoPath && !failed) {
     return (
-      <img
-        src={convertFileSrc(photoPath)}
-        alt={name}
-        onError={() => setFailed(true)}
-        className={cn("rounded-full object-cover", className ?? "h-10 w-10")}
-      />
+      <span className={cn("block shrink-0 overflow-hidden rounded-full", className ?? "h-10 w-10")}>
+        <img
+          src={convertFileSrc(photoPath)}
+          alt={name}
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      </span>
     );
   }
 
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary",
+        "flex items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-soft-foreground",
         className ?? "h-10 w-10",
       )}
     >

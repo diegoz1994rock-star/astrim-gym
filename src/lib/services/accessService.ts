@@ -5,6 +5,8 @@ import { isValidAttendanceCode } from "../domain/attendanceCode";
 import { LocalSyncProvider } from "../sync/LocalSyncProvider";
 import type { SyncProvider } from "../sync/SyncProvider";
 import type { MembershipStatus } from "../domain/membershipStatus";
+import type { AttendanceMethod } from "@/types/attendance";
+import type { ClientRow } from "@/types/db";
 
 const syncProvider: SyncProvider = new LocalSyncProvider();
 
@@ -17,9 +19,15 @@ const syncProvider: SyncProvider = new LocalSyncProvider();
 const DUPLICATE_BOUNCE_GUARD_SECONDS = 2;
 
 export type AccessOutcome =
-  | { kind: "ENTRY_ALLOWED"; clientName: string; time: string }
-  | { kind: "EXIT_ALLOWED"; clientName: string; time: string; durationMinutes: number | null }
-  | { kind: "DUPLICATE_IGNORED"; clientName: string }
+  | { kind: "ENTRY_ALLOWED"; clientName: string; photoPath: string | null; time: string }
+  | {
+      kind: "EXIT_ALLOWED";
+      clientName: string;
+      photoPath: string | null;
+      time: string;
+      durationMinutes: number | null;
+    }
+  | { kind: "DUPLICATE_IGNORED"; clientName: string; photoPath: string | null }
   | { kind: "DENIED_CODE_NOT_FOUND" }
   | { kind: "DENIED_CLIENT_INACTIVE" }
   | { kind: "DENIED_MEMBERSHIP_INVALID"; membershipStatus: MembershipStatus | null };
@@ -38,22 +46,17 @@ function durationMinutesBetween(checkIn: string, checkOut: string): number {
 }
 
 /**
- * Punto de entrada único del kiosco de recepción. Nunca compara el código
- * contra un valor fijo: siempre resuelve el cliente real del gimnasio
- * actual y delega la decisión a evaluateAccess (dominio puro), reutilizando
- * clientRepository/attendanceRepository/computeMembershipStatus ya
- * existentes en el resto de la aplicación.
+ * Núcleo compartido por todos los métodos de identificación (código, rostro,
+ * y cualquier otro futuro): una vez resuelto el cliente (o su ausencia),
+ * decide y registra exactamente igual sin importar cómo se identificó.
+ * Nunca se duplica entre registerAccessEvent y registerAccessEventByFace.
  */
-export async function registerAccessEvent(
+async function resolveAndRegister(
   gymId: string,
-  code: string,
+  client: ClientRow | null,
   deviceId: string | null,
+  method: AttendanceMethod,
 ): Promise<AccessOutcome> {
-  if (!isValidAttendanceCode(code)) {
-    return { kind: "DENIED_CODE_NOT_FOUND" };
-  }
-
-  const client = await clientRepository.findClientByAttendanceCode(gymId, code);
   const openAttendance = client
     ? await attendanceRepository.findOpenAttendanceWithElapsed(gymId, client.id)
     : null;
@@ -74,14 +77,14 @@ export async function registerAccessEvent(
     case "DENIED_MEMBERSHIP_INVALID":
       return { kind: "DENIED_MEMBERSHIP_INVALID", membershipStatus: decision.membershipStatus };
     case "DUPLICATE_IGNORED":
-      return { kind: "DUPLICATE_IGNORED", clientName: client!.name };
+      return { kind: "DUPLICATE_IGNORED", clientName: client!.name, photoPath: client!.photo_path };
     case "ENTRY_ALLOWED": {
       const attendanceId = crypto.randomUUID();
       await attendanceRepository.createAttendance(gymId, attendanceId, {
         clientId: client!.id,
         membershipId: client!.membership_id,
         notes: null,
-        entryMethod: "PIN",
+        entryMethod: method,
         deviceId,
       });
       const row = await attendanceRepository.findAttendanceById(gymId, attendanceId);
@@ -91,10 +94,15 @@ export async function registerAccessEvent(
         deviceId,
         eventType: "ENTRY",
       });
-      return { kind: "ENTRY_ALLOWED", clientName: client!.name, time: timeLabelFromHms(row?.check_in ?? null) };
+      return {
+        kind: "ENTRY_ALLOWED",
+        clientName: client!.name,
+        photoPath: client!.photo_path,
+        time: timeLabelFromHms(row?.check_in ?? null),
+      };
     }
     case "EXIT_ALLOWED": {
-      await attendanceRepository.checkOutAttendance(gymId, openAttendance!.id, "PIN");
+      await attendanceRepository.checkOutAttendance(gymId, openAttendance!.id, method);
       const row = await attendanceRepository.findAttendanceById(gymId, openAttendance!.id);
       await syncProvider.enqueue(gymId, {
         attendanceId: openAttendance!.id,
@@ -105,10 +113,43 @@ export async function registerAccessEvent(
       return {
         kind: "EXIT_ALLOWED",
         clientName: client!.name,
+        photoPath: client!.photo_path,
         time: timeLabelFromHms(row?.check_out ?? null),
         durationMinutes:
           row?.check_in && row?.check_out ? durationMinutesBetween(row.check_in, row.check_out) : null,
       };
     }
   }
+}
+
+/**
+ * Punto de entrada del kiosco por código. Nunca compara el código contra un
+ * valor fijo: siempre resuelve el cliente real del gimnasio actual y delega
+ * el resto en resolveAndRegister.
+ */
+export async function registerAccessEvent(
+  gymId: string,
+  code: string,
+  deviceId: string | null,
+): Promise<AccessOutcome> {
+  if (!isValidAttendanceCode(code)) {
+    return { kind: "DENIED_CODE_NOT_FOUND" };
+  }
+  const client = await clientRepository.findClientByAttendanceCode(gymId, code);
+  return resolveAndRegister(gymId, client, deviceId, "PIN");
+}
+
+/**
+ * Punto de entrada del kiosco por reconocimiento facial. El cliente ya fue
+ * identificado por el kiosco (faceMatching.findBestMatch contra los rostros
+ * enrolados) antes de llamar aquí — un rostro no reconocido nunca llega a
+ * esta función, se resuelve enteramente en la UI del kiosco.
+ */
+export async function registerAccessEventByFace(
+  gymId: string,
+  clientId: string,
+  deviceId: string | null,
+): Promise<AccessOutcome> {
+  const client = await clientRepository.findClientById(gymId, clientId);
+  return resolveAndRegister(gymId, client, deviceId, "FACE");
 }

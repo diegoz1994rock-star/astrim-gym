@@ -32,17 +32,24 @@ export async function findExerciseById(
   return rows[0] ?? null;
 }
 
-const EXERCISE_SELECT = `
-  SELECT id, gym_id, name, category, description, muscle_group, secondary_muscles,
-         level, exercise_type, equipment, instructions, video_path, status
-  FROM exercises
+// `video_path` ya no vive en `exercises` (siempre NULL desde la migración
+// 0028). Se trae con LEFT JOIN el video PROPIO de este gimnasio desde
+// `exercise_videos`, así el resto del código que lee `row.video_path` sigue
+// funcionando y muestra el video correcto (o ninguno) por gimnasio.
+const EXERCISE_COLS = `
+  e.id, e.gym_id, e.name, e.category, e.description, e.muscle_group, e.secondary_muscles,
+  e.level, e.exercise_type, e.equipment, e.instructions, ev.video_url AS video_path, e.status
 `;
 
 /** Catálogo completo: globales + propios del gimnasio (los globales se muestran de solo lectura en la UI). */
 export async function listExercises(gymId: string): Promise<ExerciseRow[]> {
   const db = await getDb();
   return db.select<ExerciseRow[]>(
-    `${EXERCISE_SELECT} WHERE gym_id IS NULL OR gym_id = $1 ORDER BY name COLLATE NOCASE ASC`,
+    `SELECT ${EXERCISE_COLS}
+     FROM exercises e
+     LEFT JOIN exercise_videos ev ON ev.exercise_id = e.id AND ev.gym_id = $1
+     WHERE e.gym_id IS NULL OR e.gym_id = $1
+     ORDER BY e.name COLLATE NOCASE ASC`,
     [gymId],
   );
 }
@@ -50,10 +57,40 @@ export async function listExercises(gymId: string): Promise<ExerciseRow[]> {
 export async function findExerciseByIdFull(gymId: string, id: string): Promise<ExerciseRow | null> {
   const db = await getDb();
   const rows = await db.select<ExerciseRow[]>(
-    `${EXERCISE_SELECT} WHERE id = $1 AND (gym_id IS NULL OR gym_id = $2) LIMIT 1`,
+    `SELECT ${EXERCISE_COLS}
+     FROM exercises e
+     LEFT JOIN exercise_videos ev ON ev.exercise_id = e.id AND ev.gym_id = $2
+     WHERE e.id = $1 AND (e.gym_id IS NULL OR e.gym_id = $2) LIMIT 1`,
     [id, gymId],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Video del ejercicio PARA ESTE GIMNASIO. `url` vacío/null borra el video.
+ * El catálogo (`exercises`) nunca guarda video — cada gimnasio pone el suyo.
+ */
+export async function setExerciseVideo(
+  gymId: string,
+  exerciseId: string,
+  url: string | null,
+): Promise<void> {
+  const db = await getDb();
+  const trimmed = url?.trim() ?? "";
+  if (trimmed) {
+    await db.execute(
+      `INSERT INTO exercise_videos (id, gym_id, exercise_id, video_url)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (gym_id, exercise_id)
+       DO UPDATE SET video_url = excluded.video_url, updated_at = datetime('now')`,
+      [crypto.randomUUID(), gymId, exerciseId, trimmed],
+    );
+  } else {
+    await db.execute(
+      `DELETE FROM exercise_videos WHERE gym_id = $1 AND exercise_id = $2`,
+      [gymId, exerciseId],
+    );
+  }
 }
 
 /** La unicidad de nombre solo aplica a ejercicios propios del gimnasio (ver migración 0008). */
@@ -80,8 +117,8 @@ export async function createExercise(
   await db.execute(
     `INSERT INTO exercises (
        id, gym_id, name, category, description, muscle_group, secondary_muscles,
-       level, exercise_type, equipment, instructions, video_path, status
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       level, exercise_type, equipment, instructions, status
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [
       id,
       gymId,
@@ -94,10 +131,10 @@ export async function createExercise(
       input.exerciseType,
       input.equipment.trim() || null,
       input.instructions.trim() || null,
-      input.videoPath.trim() || null,
       input.status,
     ],
   );
+  await setExerciseVideo(gymId, id, input.videoPath);
 }
 
 /**
@@ -117,9 +154,9 @@ export async function updateExercise(
   await db.execute(
     `UPDATE exercises SET
        name = $1, category = $2, description = $3, muscle_group = $4, secondary_muscles = $5,
-       level = $6, exercise_type = $7, equipment = $8, instructions = $9, video_path = $10,
-       status = $11, updated_at = datetime('now')
-     WHERE id = $12 AND (gym_id IS NULL OR gym_id = $13)`,
+       level = $6, exercise_type = $7, equipment = $8, instructions = $9,
+       status = $10, updated_at = datetime('now')
+     WHERE id = $11 AND (gym_id IS NULL OR gym_id = $12)`,
     [
       input.name.trim(),
       input.category || null,
@@ -130,12 +167,12 @@ export async function updateExercise(
       input.exerciseType,
       input.equipment.trim() || null,
       input.instructions.trim() || null,
-      input.videoPath.trim() || null,
       input.status,
       id,
       gymId,
     ],
   );
+  await setExerciseVideo(gymId, id, input.videoPath);
 }
 
 export async function setExerciseStatus(

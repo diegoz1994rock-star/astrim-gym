@@ -142,6 +142,19 @@ export async function revokeDevice(gymId: string, deviceId: string): Promise<voi
 }
 
 /**
+ * Elimina definitivamente los dispositivos seleccionados (no solo los
+ * revoca): pensado para limpiar entradas viejas de re-vinculaciones
+ * (código regenerado, dispositivo reinstalado) que ya no representan un
+ * dispositivo real. No afecta clientes/asistencia — devices es una tabla
+ * independiente.
+ */
+export async function deleteDevices(gymId: string, deviceIds: string[]): Promise<void> {
+  for (const deviceId of deviceIds) {
+    await deviceRepository.deleteDevice(gymId, deviceId);
+  }
+}
+
+/**
  * Autentica cada petición del servidor LAN por su token propio. Un
  * dispositivo revocado/deshabilitado nunca pasa, aunque el token sea
  * correcto: nunca confiar solamente en la posesión del token.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, Pencil, Plus, Power, PowerOff, Search, Users as UsersIcon } from "lucide-react";
+import { Eye, Pencil, Plus, Power, PowerOff, Search, Trash2, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import * as clientService from "@/lib/services/clientService";
 import * as trainerService from "@/lib/services/trainerService";
@@ -17,6 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/Avatar";
 import { MembershipStatusBadge } from "@/components/StatusBadges";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { LoadingState } from "@/components/Spinner";
 import { ClientFormModal } from "./ClientFormModal";
 
 export function ClientsPage() {
@@ -34,6 +37,8 @@ export function ClientsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientListItem | null>(null);
   const [statusTarget, setStatusTarget] = useState<ClientListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!gymId) return;
@@ -87,24 +92,36 @@ export function ClientsPage() {
     await loadData();
   }
 
+  async function confirmDeleteClient() {
+    if (!gymId || !deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await clientService.deleteClient(gymId, deleteTarget.id);
+      setDeleteTarget(null);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el cliente.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!gymId) {
     return <div className="text-sm text-muted-foreground">No hay un gimnasio asociado a este usuario.</div>;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">Clientes</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Administra los miembros de tu gimnasio y consulta su información.
-          </p>
-        </div>
-        <Button onClick={openCreateForm}>
-          <Plus className="h-4 w-4" />
-          Nuevo cliente
-        </Button>
-      </div>
+      <PageHeader
+        title="Clientes"
+        description="Administra los miembros de tu gimnasio y consulta su información."
+        actions={
+          <Button onClick={openCreateForm}>
+            <Plus className="h-4 w-4" />
+            Nuevo cliente
+          </Button>
+        }
+      />
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -163,26 +180,23 @@ export function ClientsPage() {
       <Card className="overflow-hidden">
         {error && <div className="px-6 py-4 text-sm text-danger">{error}</div>}
 
-        {!error && loading && (
-          <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-            Cargando clientes...
-          </div>
-        )}
+        {!error && loading && <LoadingState label="Cargando clientes…" />}
 
         {!error && !loading && filteredClients.length === 0 && (
-          <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-            <UsersIcon className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">
-              {clients.length === 0
+          <EmptyState
+            icon={UsersIcon}
+            className="border-0 bg-transparent"
+            title={
+              clients.length === 0
                 ? "Aún no tienes clientes registrados."
-                : "No se encontraron clientes con estos filtros."}
-            </p>
-            {clients.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Crea el primer cliente con el botón "Nuevo cliente".
-              </p>
-            )}
-          </div>
+                : "No se encontraron clientes con estos filtros."
+            }
+            description={
+              clients.length === 0
+                ? 'Crea el primer cliente con el botón "Nuevo cliente".'
+                : undefined
+            }
+          />
         )}
 
         {!error && !loading && filteredClients.length > 0 && (
@@ -268,6 +282,14 @@ export function ClientsPage() {
                             <Power className="h-4 w-4" />
                           )}
                         </button>
+                        <button
+                          type="button"
+                          title="Eliminar"
+                          onClick={() => setDeleteTarget(client)}
+                          className="rounded-lg p-2 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -299,6 +321,16 @@ export function ClientsPage() {
         danger={statusTarget?.status === "ACTIVE"}
         onConfirm={confirmToggleStatus}
         onCancel={() => setStatusTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar cliente"
+        description={`¿Deseas eliminar a ${deleteTarget?.name}? Esta acción borrará permanentemente su perfil, membresías, pagos, asistencias y rutinas. No se puede deshacer.`}
+        confirmLabel={deleting ? "Eliminando…" : "Eliminar"}
+        danger
+        onConfirm={confirmDeleteClient}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

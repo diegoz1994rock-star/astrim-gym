@@ -3,43 +3,75 @@ import type { RoutineStatus } from "./db";
 export type { RoutineStatus };
 
 export interface RoutineFormInput {
-  clientId: string;
   name: string;
   description: string;
-  startDate: string | null;
-  endDate: string | null;
   notes: string;
   status: RoutineStatus;
 }
 
-export interface RoutineListItem {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientDocument: string | null;
-  name: string;
-  description: string | null;
+/**
+ * Formulario para asignar una rutina (ya creada) a uno o varios clientes a
+ * la vez, todos con la misma vigencia. Es un alta en lote: no reemplaza
+ * asignaciones existentes, solo agrega las nuevas — ver AssignRoutineModal.
+ */
+export interface AssignRoutineFormInput {
+  clientIds: string[];
   startDate: string | null;
   endDate: string | null;
+}
+
+export function emptyAssignRoutineForm(): AssignRoutineFormInput {
+  return {
+    clientIds: [],
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: null,
+  };
+}
+
+export interface RoutineListItem {
+  id: string;
+  name: string;
+  description: string | null;
   status: RoutineStatus;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   exerciseCount: number;
+  assignmentCount: number;
+}
+
+/** Un cliente asignado a una rutina, con su propia vigencia. */
+export interface RoutineAssignmentListItem {
+  id: string;
+  routineId: string;
+  clientId: string;
+  clientName: string;
+  clientDocument: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+}
+
+/** Rutina vista desde un cliente en particular (su propia vigencia), usada en Progreso. */
+export interface ClientRoutineListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  status: RoutineStatus;
+  notes: string | null;
+  exerciseCount: number;
+  startDate: string | null;
+  endDate: string | null;
 }
 
 export interface RoutineFilters {
   search: string;
   status: "ALL" | RoutineStatus;
-  dateFrom: string;
-  dateTo: string;
 }
 
 export const DEFAULT_ROUTINE_FILTERS: RoutineFilters = {
   search: "",
   status: "ALL",
-  dateFrom: "",
-  dateTo: "",
 };
 
 export const ROUTINE_STATUS_LABELS: Record<RoutineStatus, string> = {
@@ -171,13 +203,10 @@ export const ROUTINE_OBJECTIVE_OPTIONS: string[] = [
   "Rendimiento deportivo",
 ];
 
-export function emptyRoutineForm(clientId?: string): RoutineFormInput {
+export function emptyRoutineForm(): RoutineFormInput {
   return {
-    clientId: clientId ?? "",
     name: "",
     description: "",
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: null,
     notes: "",
     status: "ACTIVE",
   };
@@ -185,15 +214,13 @@ export function emptyRoutineForm(clientId?: string): RoutineFormInput {
 
 export function routineToFormInput(routine: RoutineListItem): RoutineFormInput {
   return {
-    clientId: routine.clientId,
     name: routine.name,
     description: routine.description ?? "",
-    startDate: routine.startDate,
-    endDate: routine.endDate,
     notes: routine.notes ?? "",
     status: routine.status,
   };
 }
+
 
 // ---- Ejercicios dentro de una rutina ----
 // Estructura mínima preparada para el futuro módulo de Ejercicios:
@@ -208,32 +235,17 @@ export function routineToFormInput(routine: RoutineListItem): RoutineFormInput {
 // metadatos del ejercicio (exercise_type/equipment), nunca de su nombre —
 // ver src/lib/domain/exerciseConfigMode.ts, que es la fuente de verdad.
 
-export type TimeUnit = "MINUTES" | "HOURS";
+export {
+  TIME_UNIT_LABELS,
+  INTENSITY_LABEL_OPTIONS,
+  type TimeUnit,
+  type ExerciseConfigInput,
+} from "./exerciseConfig";
 
-export const TIME_UNIT_LABELS: Record<TimeUnit, string> = {
-  MINUTES: "minutos",
-  HOURS: "horas",
-};
+import { EMPTY_EXERCISE_CONFIG, type ExerciseConfigInput, type TimeUnit } from "./exerciseConfig";
 
-export const INTENSITY_LABEL_OPTIONS: string[] = ["Baja", "Moderada", "Alta", "Muy alta"];
-
-export interface RoutineExerciseFormInput {
+export interface RoutineExerciseFormInput extends ExerciseConfigInput {
   exerciseId: string;
-  // Fuerza / musculación (sin cambios respecto al comportamiento original)
-  sets: number | null;
-  reps: number | null;
-  weight: number | null;
-  restSeconds: number | null;
-  // Cardio / tiempo
-  timeValue: number | null;
-  timeUnit: TimeUnit | null;
-  speedKmh: number | null;
-  inclinePercent: number | null;
-  resistanceLevel: number | null;
-  rpm: number | null;
-  intensityLabel: string | null;
-  // Común a ambos modos
-  notes: string;
 }
 
 export interface RoutineExerciseListItem {
@@ -259,21 +271,7 @@ export interface RoutineExerciseListItem {
 }
 
 export function emptyRoutineExerciseForm(): RoutineExerciseFormInput {
-  return {
-    exerciseId: "",
-    sets: null,
-    reps: null,
-    weight: null,
-    restSeconds: null,
-    timeValue: null,
-    timeUnit: null,
-    speedKmh: null,
-    inclinePercent: null,
-    resistanceLevel: null,
-    rpm: null,
-    intensityLabel: null,
-    notes: "",
-  };
+  return { ...EMPTY_EXERCISE_CONFIG, exerciseId: "" };
 }
 
 export function routineExerciseToFormInput(item: RoutineExerciseListItem): RoutineExerciseFormInput {

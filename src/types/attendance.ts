@@ -7,7 +7,7 @@ export type { AttendanceStatus };
  * están soportados por el esquema aunque hoy solo PIN y MANUAL (registro
  * manual desde el panel) tengan una implementación real.
  */
-export type AttendanceMethod = "PIN" | "QR" | "APP" | "BIOMETRIC" | "MANUAL";
+export type AttendanceMethod = "PIN" | "QR" | "APP" | "BIOMETRIC" | "MANUAL" | "FACE";
 
 export const ATTENDANCE_METHOD_LABELS: Record<AttendanceMethod, string> = {
   PIN: "PIN",
@@ -15,6 +15,7 @@ export const ATTENDANCE_METHOD_LABELS: Record<AttendanceMethod, string> = {
   APP: "App móvil",
   BIOMETRIC: "Huella",
   MANUAL: "Manual",
+  FACE: "Reconocimiento facial",
 };
 
 export interface RegisterAttendanceInput {

@@ -8,6 +8,7 @@ const CLIENT_SELECT = `
     c.weight, c.height, c.waist, c.chest, c.arm, c.leg, c.calf, c.hip,
     c.body_fat, c.muscle_mass, c.gender, c.goal, c.trainer_id, t.name AS trainer_name,
     c.join_date, c.photo_path, c.observations, c.status, c.attendance_code,
+    c.face_consent, c.face_enrolled_at, c.cloud_uid,
     m.id AS membership_id, p.name AS membership_plan_name,
     m.start_date AS membership_start_date, m.end_date AS membership_end_date,
     m.manual_status AS membership_manual_status, m.price AS membership_price
@@ -161,6 +162,26 @@ export async function setClientStatus(
 }
 
 /**
+ * Elimina al cliente y todo su rastro (membresías, pagos, asistencias,
+ * medidas, asignaciones de rutina e inscripciones a clases). No hay FKs con
+ * CASCADE en el esquema, así que el borrado de hijos se hace a mano, en el
+ * orden que respeta las referencias. Las rutinas en sí (routines,
+ * routine_exercises) NO se tocan: son plantillas que pueden estar
+ * compartidas con otros clientes, solo se quita la asignación de este.
+ */
+export async function deleteClient(gymId: string, id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(`DELETE FROM attendance_sync_queue WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM attendance WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM class_enrollments WHERE client_id = $1`, [id]);
+  await db.execute(`DELETE FROM routine_assignments WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM measurements WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM payments WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM memberships WHERE client_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM clients WHERE id = $1 AND gym_id = $2`, [id, gymId]);
+}
+
+/**
  * Búsqueda usada por el kiosco de recepción: siempre acotada al gimnasio
  * actual, para que un código de un gimnasio nunca funcione en otro.
  */
@@ -268,5 +289,71 @@ export async function setClientAttendanceCode(
   await db.execute(
     `UPDATE clients SET attendance_code = $1, updated_at = datetime('now') WHERE id = $2 AND gym_id = $3`,
     [attendanceCode, id, gymId],
+  );
+}
+
+export interface ClientFaceProfileInput {
+  embedding: string | null;
+  consent: boolean;
+  enrolledAt: string | null;
+}
+
+/**
+ * Update angosto para el reconocimiento facial, igual que
+ * setClientAttendanceCode: nunca pasa por el UPDATE completo de
+ * updateClient/ClientFormInput porque el rostro no se edita desde ese
+ * formulario, sino desde su propia tarjeta en el perfil del cliente.
+ */
+export async function setClientFaceProfile(
+  gymId: string,
+  id: string,
+  input: ClientFaceProfileInput,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE clients SET face_embedding = $1, face_consent = $2, face_enrolled_at = $3,
+       updated_at = datetime('now')
+     WHERE id = $4 AND gym_id = $5`,
+    [input.embedding, input.consent ? 1 : 0, input.enrolledAt, id, gymId],
+  );
+}
+
+export interface ClientFaceRow {
+  id: string;
+  name: string;
+  photo_path: string | null;
+  face_embedding: string;
+}
+
+/**
+ * Solo clientes activos con un rostro ya enrolado, para que el kiosco
+ * cargue una sola vez el set completo y compare en memoria (no hay forma
+ * de comparar embeddings con SQL). Un cliente inactivo no debe poder
+ * marcar entrada por rostro, igual que ya ocurre hoy con su PIN.
+ */
+export async function listClientsWithFaceEmbeddings(gymId: string): Promise<ClientFaceRow[]> {
+  const db = await getDb();
+  return db.select<ClientFaceRow[]>(
+    `SELECT id, name, photo_path, face_embedding FROM clients
+     WHERE gym_id = $1 AND status = 'ACTIVE' AND face_embedding IS NOT NULL`,
+    [gymId],
+  );
+}
+
+/**
+ * Vincula (o desvincula) la cuenta de Firebase Auth de un cliente. El uid
+ * lo entrega Identity Toolkit al crear el acceso a la app; ver
+ * src/lib/cloud/clientAccountService.ts. Este UPDATE dispara el trigger de
+ * outbox de `clients`, así que el cambio se sincroniza solo.
+ */
+export async function setClientCloudUid(
+  gymId: string,
+  id: string,
+  cloudUid: string | null,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE clients SET cloud_uid = $1, updated_at = datetime('now') WHERE id = $2 AND gym_id = $3`,
+    [cloudUid, id, gymId],
   );
 }

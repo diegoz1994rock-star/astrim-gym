@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import type { MembershipStatus } from "@/lib/domain/membershipStatus";
 import type { PaymentStatus } from "@/types/payment";
 import type { RoutineStatus } from "@/types/routine";
+import { MEAL_PLAN_GOAL_LABELS, type MealPlanGoal, type MealPlanStatus } from "@/types/mealPlan";
 
 type ActiveStatus = "ACTIVE" | "INACTIVE";
 
@@ -52,4 +53,28 @@ const ROUTINE_STATUS_META: Record<RoutineStatus, { label: string; tone: "success
 export function RoutineStatusBadge({ status }: { status: RoutineStatus }) {
   const meta = ROUTINE_STATUS_META[status];
   return <Badge tone={meta.tone}>{meta.label}</Badge>;
+}
+
+const MEAL_PLAN_STATUS_META: Record<MealPlanStatus, { label: string; tone: "success" | "primary" | "neutral" }> = {
+  ACTIVE: { label: "Activo", tone: "success" },
+  FINISHED: { label: "Finalizado", tone: "primary" },
+  INACTIVE: { label: "Inactivo", tone: "neutral" },
+};
+
+export function MealPlanStatusBadge({ status }: { status: MealPlanStatus }) {
+  const meta = MEAL_PLAN_STATUS_META[status];
+  return <Badge tone={meta.tone}>{meta.label}</Badge>;
+}
+
+const MEAL_PLAN_GOAL_TONE: Record<MealPlanGoal, "success" | "primary" | "warning" | "neutral"> = {
+  PERDIDA_PESO: "warning",
+  MANTENIMIENTO: "neutral",
+  GANANCIA_MUSCULAR: "primary",
+  RECOMPOSICION: "success",
+  OTRO: "neutral",
+};
+
+export function MealPlanGoalBadge({ goal }: { goal: MealPlanGoal | null }) {
+  if (!goal) return <Badge tone="neutral">Sin objetivo definido</Badge>;
+  return <Badge tone={MEAL_PLAN_GOAL_TONE[goal]}>{MEAL_PLAN_GOAL_LABELS[goal]}</Badge>;
 }

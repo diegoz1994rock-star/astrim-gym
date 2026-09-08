@@ -17,6 +17,8 @@ import { Avatar } from "@/components/Avatar";
 import { ActiveStatusBadge, MembershipStatusBadge } from "@/components/StatusBadges";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ClientFormModal } from "./ClientFormModal";
+import { FaceEnrollmentCard } from "./FaceEnrollmentCard";
+import { ClientAppAccessCard } from "./ClientAppAccessCard";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -246,6 +248,18 @@ export function ClientProfilePage() {
         </CardContent>
       </Card>
 
+      {gymId && <FaceEnrollmentCard gymId={gymId} client={client} onChanged={loadClient} />}
+
+      {gymId && (
+        <ClientAppAccessCard
+          gymId={gymId}
+          clientId={client.id}
+          clientEmail={client.email}
+          cloudUid={client.cloudUid}
+          onCreated={loadClient}
+        />
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Medidas corporales actuales</CardTitle>
@@ -275,7 +289,6 @@ export function ClientProfilePage() {
             <InfoRow label="Muslo" value={formatMeasurement(client.leg, "cm")} />
             <InfoRow label="Pantorrilla" value={formatMeasurement(client.calf, "cm")} />
             <InfoRow label="Cadera" value={formatMeasurement(client.hip, "cm")} />
-            <InfoRow label="Grasa corporal" value={formatMeasurement(client.bodyFat, "%")} />
             <InfoRow label="Masa muscular" value={formatMeasurement(client.muscleMass, "kg")} />
           </div>
         </CardContent>

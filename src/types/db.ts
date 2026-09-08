@@ -17,6 +17,7 @@ export interface GymRecord {
   name: string;
   slug: string;
   license_status: LicenseStatus;
+  license_expiration_date: string | null;
   logo_path: string | null;
 }
 
@@ -95,6 +96,9 @@ export interface ClientRow {
   observations: string | null;
   status: ClientStatus;
   attendance_code: string | null;
+  face_consent: number;
+  face_enrolled_at: string | null;
+  cloud_uid: string | null;
   membership_id: string | null;
   membership_plan_name: string | null;
   membership_start_date: string | null;
@@ -176,18 +180,37 @@ export type RoutineStatus = "ACTIVE" | "FINISHED" | "INACTIVE";
 export interface RoutineRow {
   id: string;
   gym_id: string;
-  client_id: string;
-  client_name: string;
-  client_document: string | null;
   name: string;
   description: string | null;
-  start_date: string | null;
-  end_date: string | null;
   status: RoutineStatus;
   notes: string | null;
   created_at: string;
   updated_at: string;
   exercise_count: number;
+  assignment_count: number;
+}
+
+export interface RoutineAssignmentRow {
+  id: string;
+  routine_id: string;
+  client_id: string;
+  client_name: string;
+  client_document: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+}
+
+/** Rutina asignada a UN cliente en particular (su propia vigencia), para ProgressPage. */
+export interface ClientRoutineRow {
+  id: string;
+  name: string;
+  description: string | null;
+  status: RoutineStatus;
+  notes: string | null;
+  exercise_count: number;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 export interface ExerciseOptionRow {
@@ -317,3 +340,165 @@ export interface MeasurementRow {
   muscle_mass: number | null;
   notes: string | null;
 }
+
+export interface ClassTypeRow {
+  id: string;
+  gym_id: string | null;
+  name: string;
+  status: string;
+}
+
+export type ClassStatus = "PROGRAMADA" | "ABIERTA" | "COMPLETA" | "EN_CURSO" | "FINALIZADA" | "CANCELADA";
+
+export interface ClassRow {
+  id: string;
+  gym_id: string;
+  class_type_id: string;
+  class_type_name: string;
+  trainer_id: string | null;
+  trainer_name: string | null;
+  name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  capacity: number;
+  status: ClassStatus;
+  description: string | null;
+  notes: string | null;
+  recurrence_group_id: string | null;
+  enrolled_count: number;
+}
+
+export interface ClassBlockRow {
+  id: string;
+  class_id: string;
+  name: string;
+  block_type: string;
+  sort_order: number;
+}
+
+export interface ClassBlockExerciseRow {
+  id: string;
+  block_id: string;
+  exercise_id: string;
+  exercise_name: string;
+  exercise_type: string | null;
+  equipment: string | null;
+  sets: number | null;
+  reps: number | null;
+  weight: number | null;
+  rest_seconds: number | null;
+  notes: string | null;
+  time_value: number | null;
+  time_unit: string | null;
+  speed_kmh: number | null;
+  incline_percent: number | null;
+  resistance_level: number | null;
+  rpm: number | null;
+  intensity_label: string | null;
+  sort_order: number;
+}
+
+export interface ClassEnrollmentRow {
+  id: string;
+  class_id: string;
+  client_id: string;
+  client_name: string;
+  client_document: string | null;
+}
+
+// ---- Plan de Alimentación (mismo diseño que Rutina, ver 0032_meal_plans.sql) ----
+
+export type MealPlanStatus = "ACTIVE" | "FINISHED" | "INACTIVE";
+
+/** Catálogo de alimentos: gym_id NULL = global, gym_id NOT NULL = propio del gimnasio. */
+export interface FoodRow {
+  id: string;
+  gym_id: string | null;
+  name: string;
+  category: string;
+  default_unit: string;
+  calories_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  image_base64: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MealPlanRow {
+  id: string;
+  gym_id: string;
+  trainer_id: string | null;
+  name: string;
+  description: string | null;
+  status: MealPlanStatus;
+  goal: string | null;
+  notes: string | null;
+  daily_calories_target: number | null;
+  daily_protein_target: number | null;
+  daily_carbs_target: number | null;
+  daily_fat_target: number | null;
+  created_at: string;
+  updated_at: string;
+  category_target_count: number;
+  allowed_food_count: number;
+  assignment_count: number;
+}
+
+/** Meta por categoría de un plan (ej. "Proteína: 180 g/día"). Ver 0033_meal_plan_targets.sql. */
+export interface MealPlanCategoryTargetRow {
+  id: string;
+  meal_plan_id: string;
+  category: string;
+  target_quantity: number;
+  target_unit: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Alimento del catálogo permitido para un plan (whitelist). Denormaliza foods para no tener que joinear en la UI. */
+export interface MealPlanAllowedFoodRow {
+  id: string;
+  meal_plan_id: string;
+  food_id: string;
+  food_name: string;
+  category: string;
+  default_unit: string;
+  calories_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  created_at: string;
+}
+
+export interface MealPlanAssignmentRow {
+  id: string;
+  meal_plan_id: string;
+  client_id: string;
+  client_name: string;
+  client_document: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+}
+
+/** Plan de alimentación asignado a UN cliente en particular (su propia vigencia). */
+export interface ClientMealPlanRow {
+  id: string;
+  name: string;
+  description: string | null;
+  status: MealPlanStatus;
+  goal: string | null;
+  notes: string | null;
+  daily_calories_target: number | null;
+  daily_protein_target: number | null;
+  daily_carbs_target: number | null;
+  daily_fat_target: number | null;
+  start_date: string | null;
+  end_date: string | null;
+}
+

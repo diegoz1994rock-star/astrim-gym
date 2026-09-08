@@ -1,13 +1,16 @@
 import {
   ROUTINE_NAME_OPTIONS,
   ROUTINE_OBJECTIVE_OPTIONS,
+  type AssignRoutineFormInput,
   type RoutineExerciseFormInput,
   type RoutineFormInput,
 } from "@/types/routine";
 import { hasValidationErrors } from "./validation";
+import { validateExerciseConfig } from "./exerciseConfigValidation";
 import type { CardioEquipmentProfile, ExerciseConfigurationMode } from "./exerciseConfigMode";
 
 export type RoutineValidationErrors = Partial<Record<keyof RoutineFormInput, string>>;
+export type AssignRoutineValidationErrors = Partial<Record<keyof AssignRoutineFormInput, string>>;
 export type RoutineExerciseValidationErrors = Partial<Record<keyof RoutineExerciseFormInput, string>>;
 export { hasValidationErrors };
 
@@ -29,10 +32,6 @@ export function validateRoutineForm(
 ): RoutineValidationErrors {
   const errors: RoutineValidationErrors = {};
 
-  if (!input.clientId) {
-    errors.clientId = "Selecciona un cliente.";
-  }
-
   const name = input.name.trim();
   if (!name) {
     errors.name = "Selecciona el nombre de la rutina.";
@@ -47,6 +46,16 @@ export function validateRoutineForm(
     description !== (options.allowedDescription ?? "")
   ) {
     errors.description = "Selecciona un objetivo válido del catálogo.";
+  }
+
+  return errors;
+}
+
+export function validateAssignRoutineForm(input: AssignRoutineFormInput): AssignRoutineValidationErrors {
+  const errors: AssignRoutineValidationErrors = {};
+
+  if (input.clientIds.length === 0) {
+    errors.clientIds = "Selecciona al menos un cliente.";
   }
 
   const start = input.startDate ? new Date(`${input.startDate}T00:00:00`) : null;
@@ -67,99 +76,19 @@ export function validateRoutineForm(
   return errors;
 }
 
-const MAX_TIME_MINUTES = 600; // 10 horas
-const MAX_TIME_HOURS = 10;
-const MAX_SPEED_KMH = 30;
-const MAX_INCLINE_PERCENT = 40;
-const MAX_RESISTANCE_LEVEL = 30;
-const MIN_RPM = 20;
-const MAX_RPM = 220;
-
-function isValidFiniteNumber(value: number): boolean {
-  return Number.isFinite(value) && !Number.isNaN(value);
-}
-
+/**
+ * Rutina: valida qué ejercicio se eligió + delega la validación de los
+ * valores (series/reps/tiempo/...) en `validateExerciseConfig`, que es la
+ * misma que usan las Clases/Sesiones.
+ */
 export function validateRoutineExerciseForm(
   input: RoutineExerciseFormInput,
   mode: ExerciseConfigurationMode = "STRENGTH",
   cardioProfile: CardioEquipmentProfile = "GENERIC",
 ): RoutineExerciseValidationErrors {
-  const errors: RoutineExerciseValidationErrors = {};
-
+  const errors: RoutineExerciseValidationErrors = { ...validateExerciseConfig(input, mode, cardioProfile) };
   if (!input.exerciseId) {
     errors.exerciseId = "Selecciona un ejercicio.";
   }
-
-  if (mode === "STRENGTH") {
-    if (input.sets !== null && (!Number.isInteger(input.sets) || input.sets <= 0)) {
-      errors.sets = "Las series deben ser un número entero positivo.";
-    }
-
-    if (input.reps !== null && (!Number.isInteger(input.reps) || input.reps <= 0)) {
-      errors.reps = "Las repeticiones deben ser un número entero positivo.";
-    }
-
-    if (input.weight !== null && (Number.isNaN(input.weight) || input.weight < 0)) {
-      errors.weight = "El peso no puede ser negativo.";
-    }
-
-    if (input.restSeconds !== null && (!Number.isInteger(input.restSeconds) || input.restSeconds < 0)) {
-      errors.restSeconds = "El descanso debe ser un número entero de segundos.";
-    }
-
-    return errors;
-  }
-
-  // CARDIO_TIME y MOBILITY comparten el campo Tiempo.
-  if (input.timeValue === null || input.timeUnit === null) {
-    errors.timeValue = "Ingresa el tiempo del ejercicio.";
-  } else if (!isValidFiniteNumber(input.timeValue)) {
-    errors.timeValue = "El tiempo no es válido.";
-  } else if (input.timeValue <= 0) {
-    errors.timeValue = "El tiempo debe ser mayor que 0.";
-  } else if (input.timeUnit === "MINUTES" && input.timeValue > MAX_TIME_MINUTES) {
-    errors.timeValue = `El tiempo no puede superar los ${MAX_TIME_MINUTES} minutos.`;
-  } else if (input.timeUnit === "HOURS" && input.timeValue > MAX_TIME_HOURS) {
-    errors.timeValue = `El tiempo no puede superar las ${MAX_TIME_HOURS} horas.`;
-  }
-
-  if (mode !== "CARDIO_TIME") {
-    return errors;
-  }
-
-  if (cardioProfile === "TREADMILL") {
-    if (input.speedKmh === null) {
-      errors.speedKmh = "Ingresa la velocidad.";
-    } else if (!isValidFiniteNumber(input.speedKmh) || input.speedKmh <= 0) {
-      errors.speedKmh = "La velocidad debe ser mayor que 0.";
-    } else if (input.speedKmh > MAX_SPEED_KMH) {
-      errors.speedKmh = `La velocidad no puede superar ${MAX_SPEED_KMH} km/h.`;
-    }
-
-    if (input.inclinePercent !== null) {
-      if (!isValidFiniteNumber(input.inclinePercent) || input.inclinePercent < 0) {
-        errors.inclinePercent = "La inclinación no puede ser negativa.";
-      } else if (input.inclinePercent > MAX_INCLINE_PERCENT) {
-        errors.inclinePercent = `La inclinación no puede superar ${MAX_INCLINE_PERCENT}%.`;
-      }
-    }
-  } else if (cardioProfile === "BIKE" || cardioProfile === "ROWER" || cardioProfile === "CLIMBER") {
-    if (input.resistanceLevel === null) {
-      errors.resistanceLevel = "Ingresa el nivel de resistencia.";
-    } else if (!Number.isInteger(input.resistanceLevel) || input.resistanceLevel <= 0) {
-      errors.resistanceLevel = "El nivel de resistencia debe ser un número entero positivo.";
-    } else if (input.resistanceLevel > MAX_RESISTANCE_LEVEL) {
-      errors.resistanceLevel = `El nivel de resistencia no puede superar ${MAX_RESISTANCE_LEVEL}.`;
-    }
-
-    if (cardioProfile === "BIKE" && input.rpm !== null) {
-      if (!Number.isInteger(input.rpm) || input.rpm < MIN_RPM || input.rpm > MAX_RPM) {
-        errors.rpm = `El RPM debe estar entre ${MIN_RPM} y ${MAX_RPM}.`;
-      }
-    }
-  } else if (!input.intensityLabel) {
-    errors.intensityLabel = "Selecciona la intensidad.";
-  }
-
   return errors;
 }

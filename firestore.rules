@@ -1,0 +1,144 @@
+rules_version = '2';
+
+// Reglas de seguridad de ASTRIM GYM (nube).
+//
+// Modelo: cada usuario autenticado tiene un doc `userIndex/{uid}` con
+// { gymId, clientId, role }. Es la única fuente de autorización — NUNCA se
+// confía en un gymId/clientId que venga en el path o el payload sin
+// contrastarlo contra userIndex.
+//
+// - CLIENT: lee lo suyo (`clients/{suId}/**`) y lo público de su gimnasio
+//   (`gyms/{suGym}/**`, `exerciseLibrary`).
+// - ADMIN (dueño/panel): lee y escribe todo lo de SU gimnasio.
+// - OPERADOR (dueño de ASTRIM, consola web): da de alta gimnasios, crea el
+//   `userIndex` del primer ADMIN y administra la licencia (`gyms/{id}`).
+//   Se identifica por UID fijo abajo — no necesita doc `userIndex`.
+//
+// Los `get()` de reglas NO se facturan como lecturas y hay 1 por request.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // UID(s) del/los operador(es) de ASTRIM. Para sumar otro operador,
+    // agregá su UID de Firebase Auth a esta lista y volvé a desplegar.
+    function isOperator() {
+      return request.auth != null && request.auth.uid in [
+        'HWi0KCmtuXXSozNmO6RsyDbWpo62'
+      ];
+    }
+
+    function idx() {
+      return get(/databases/$(database)/documents/userIndex/$(request.auth.uid)).data;
+    }
+    function signedIn() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/userIndex/$(request.auth.uid));
+    }
+    function isAdminOf(gymId) {
+      return signedIn() && idx().role == 'ADMIN' && idx().gymId == gymId;
+    }
+    function isClient(clientId) {
+      return signedIn() && idx().clientId == clientId;
+    }
+
+    // ---- Índice usuario -> gimnasio/cliente/rol ----
+    match /userIndex/{uid} {
+      allow read: if isOperator()
+        || (request.auth != null && request.auth.uid == uid);
+      // El operador crea el userIndex del primer ADMIN de cada gimnasio
+      // desde la consola. Un ADMIN crea los userIndex de los clientes de su
+      // propio gimnasio.
+      allow create, update: if isOperator()
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/userIndex/$(request.auth.uid))
+            && idx().role == 'ADMIN'
+            && request.resource.data.gymId == idx().gymId);
+      allow delete: if isOperator()
+        || (request.auth != null
+            && exists(/databases/$(database)/documents/userIndex/$(request.auth.uid))
+            && idx().role == 'ADMIN'
+            && (resource == null || resource.data.gymId == idx().gymId));
+    }
+
+    // ---- Credencial del dueño en texto (solo consola de operador) ----
+    // El operador la ve para poder ayudar a un dueño que olvidó su clave.
+    // El panel del dueño la reescribe cuando el dueño la cambia (write-only
+    // para él: la escribe pero NO puede leerla de vuelta).
+    match /gymCredentials/{gymId} {
+      allow read: if isOperator();
+      allow create, update: if isOperator() || isAdminOf(gymId);
+      allow delete: if isOperator();
+    }
+
+    // ---- Biblioteca global de ejercicios (compartida) ----
+    match /exerciseLibrary/{exerciseId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && idx().role == 'ADMIN';
+    }
+
+    // ---- Catálogo global de alimentos (compartido) ----
+    match /foodLibrary/{foodId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && idx().role == 'ADMIN';
+    }
+
+    // ---- Datos del gimnasio ----
+    // El doc raíz `gyms/{id}` lo administran el operador (nombre + licencia)
+    // y el panel del dueño (marca, contacto) — ambos con `merge`, sin pisarse.
+    // Las subcolecciones (trainers, routines, ...) son solo del ADMIN.
+    match /gyms/{gymId} {
+      allow read: if isOperator()
+        || (signedIn() && idx().gymId == gymId);
+      allow write: if isOperator() || isAdminOf(gymId);
+
+      match /{document=**} {
+        allow read: if signedIn() && idx().gymId == gymId;
+        allow write: if isAdminOf(gymId);
+      }
+    }
+
+    // ---- Datos por cliente ----
+    match /clients/{clientId} {
+      allow read: if isClient(clientId) || isAdminOf(resource.data.gymId);
+      allow create, update: if signedIn() && idx().role == 'ADMIN'
+        && request.resource.data.gymId == idx().gymId;
+      allow delete: if signedIn() && idx().role == 'ADMIN'
+        && (resource == null || resource.data.gymId == idx().gymId);
+
+      // Sesiones de entrenamiento: las escribe el cliente (preparado para
+      // la fase de Modo Entrenamiento; hoy la app aún no escribe).
+      match /workoutSessions/{sessionId} {
+        allow read: if isClient(clientId) || isAdminOf(resource.data.gymId);
+        allow create, update, delete: if isClient(clientId);
+
+        match /sets/{setId} {
+          allow read, write: if isClient(clientId);
+        }
+      }
+
+      // Registro de comidas del Plan de Alimentación: lo escribe el cliente
+      // (elige libremente entre los alimentos permitidos por su plan y
+      // registra lo que come). Mismo patrón que workoutSessions: dato de
+      // cliente, nunca vuelve al panel/SQLite.
+      match /mealLogEntries/{entryId} {
+        allow read: if isClient(clientId) || isAdminOf(resource.data.gymId);
+        allow create, update, delete: if isClient(clientId);
+      }
+
+      // Resto de subcolecciones (memberships, routineAssignments,
+      // classEnrollments, measurements): el cliente lee, el ADMIN escribe.
+      // create/update chequean el payload entrante; delete chequea el doc
+      // existente (en un delete no hay request.resource). `resource == null`
+      // se permite: borrar un doc que nunca se creó (el outbox fusionó
+      // UPSERT+DELETE antes de sincronizar) es un no-op inofensivo y sin
+      // esta tolerancia la fila queda FAILED para siempre.
+      match /{sub}/{docId} {
+        allow read: if isClient(clientId) || (signedIn() && idx().role == 'ADMIN' && idx().gymId == resource.data.gymId);
+        allow create, update: if signedIn() && idx().role == 'ADMIN'
+          && request.resource.data.gymId == idx().gymId;
+        allow delete: if signedIn() && idx().role == 'ADMIN'
+          && (resource == null || resource.data.gymId == idx().gymId);
+      }
+    }
+  }
+}

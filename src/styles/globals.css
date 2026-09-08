@@ -1,85 +1,167 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* El tema oscuro se activa poniendo la clase `dark` en <html> (lo hace
+   ThemeProvider). El tema claro es el predeterminado. */
+@custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================
+   DESIGN TOKENS — TEMA CLARO (predeterminado)
+   ============================================================ */
 :root {
-  --radius: 0.75rem;
+  color-scheme: light;
 
-  --background: oklch(0.99 0.002 260);
-  --foreground: oklch(0.18 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 260);
-  --border: oklch(0.9 0.01 260);
-  --input: oklch(0.9 0.01 260);
-  --muted: oklch(0.95 0.01 260);
-  --muted-foreground: oklch(0.5 0.02 260);
+  --radius: 0.625rem;
 
-  --primary: oklch(0.62 0.19 265);
-  --primary-foreground: oklch(0.98 0 0);
-  --accent: oklch(0.75 0.19 155);
-  --accent-foreground: oklch(0.15 0.02 155);
+  /* Superficies: profundidad sutil de fondo → panel → tarjeta → hover */
+  --background: oklch(0.984 0.0035 106);      /* blanco cálido de fondo */
+  --surface: oklch(1 0 0);                     /* tarjetas / paneles */
+  --surface-muted: oklch(0.972 0.0035 106);    /* inputs, filas, zonas suaves */
+  --surface-hover: oklch(0.955 0.004 106);     /* hover sobre superficies suaves */
+  --sidebar: oklch(0.995 0.002 106);
 
-  --success: oklch(0.72 0.17 155);
-  --warning: oklch(0.8 0.16 85);
-  --danger: oklch(0.63 0.22 25);
+  /* Texto */
+  --foreground: oklch(0.24 0.014 264);         /* grafito, no negro puro */
+  --foreground-muted: oklch(0.52 0.013 264);   /* secundario */
+  --foreground-subtle: oklch(0.63 0.011 264);  /* terciario / placeholders */
 
-  --sidebar: oklch(0.99 0.002 260);
-  --sidebar-foreground: oklch(0.18 0.02 260);
-  --sidebar-border: oklch(0.9 0.01 260);
+  /* Bordes */
+  --border: oklch(0.925 0.004 264);            /* muy sutil */
+  --border-strong: oklch(0.875 0.006 264);     /* divisores, bordes de input */
+
+  /* Acento — índigo profesional, se usa con moderación */
+  --primary: oklch(0.55 0.15 264);
+  --primary-hover: oklch(0.5 0.152 264);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: oklch(0.955 0.028 264);      /* fondo activo de nav, chips */
+  --primary-soft-foreground: oklch(0.46 0.15 264);
+
+  --accent: oklch(0.62 0.13 190);              /* cian sobrio, detalle de identidad */
+  --accent-foreground: oklch(0.99 0 0);
+
+  /* Semánticos */
+  --success: oklch(0.58 0.12 155);
+  --success-soft: oklch(0.955 0.035 155);
+  --warning: oklch(0.66 0.13 74);
+  --warning-soft: oklch(0.96 0.045 82);
+  --danger: oklch(0.57 0.19 25);
+  --danger-soft: oklch(0.955 0.035 25);
+
+  --ring: oklch(0.55 0.15 264 / 0.45);
+
+  /* Sombras suaves (no negro puro, tinte grafito-azulado) */
+  --shadow-xs: 0 1px 2px 0 oklch(0.24 0.03 264 / 0.05);
+  --shadow-sm: 0 1px 2px 0 oklch(0.24 0.03 264 / 0.05), 0 1px 3px 0 oklch(0.24 0.03 264 / 0.06);
+  --shadow-md: 0 2px 4px -1px oklch(0.24 0.03 264 / 0.06), 0 8px 16px -4px oklch(0.24 0.03 264 / 0.08);
+  --shadow-lg: 0 4px 8px -2px oklch(0.24 0.03 264 / 0.08), 0 16px 32px -8px oklch(0.24 0.03 264 / 0.12);
 }
 
+/* ============================================================
+   DESIGN TOKENS — TEMA OSCURO
+   ============================================================ */
 .dark {
-  --background: oklch(0.16 0.015 260);
-  --foreground: oklch(0.96 0.01 260);
-  --card: oklch(0.2 0.017 260);
-  --card-foreground: oklch(0.96 0.01 260);
-  --border: oklch(0.29 0.015 260);
-  --input: oklch(0.29 0.015 260);
-  --muted: oklch(0.24 0.015 260);
-  --muted-foreground: oklch(0.65 0.02 260);
+  color-scheme: dark;
 
-  --primary: oklch(0.68 0.19 265);
-  --primary-foreground: oklch(0.12 0.02 265);
-  --accent: oklch(0.78 0.19 155);
-  --accent-foreground: oklch(0.12 0.02 155);
+  --background: oklch(0.165 0.009 264);
+  --surface: oklch(0.202 0.011 264);
+  --surface-muted: oklch(0.235 0.012 264);
+  --surface-hover: oklch(0.272 0.013 264);
+  --sidebar: oklch(0.148 0.009 264);
 
-  --success: oklch(0.72 0.17 155);
-  --warning: oklch(0.8 0.16 85);
-  --danger: oklch(0.68 0.2 25);
+  --foreground: oklch(0.95 0.005 264);
+  --foreground-muted: oklch(0.7 0.012 264);
+  --foreground-subtle: oklch(0.56 0.012 264);
 
-  --sidebar: oklch(0.13 0.015 260);
-  --sidebar-foreground: oklch(0.9 0.01 260);
-  --sidebar-border: oklch(0.26 0.015 260);
+  --border: oklch(0.29 0.011 264);
+  --border-strong: oklch(0.36 0.013 264);
+
+  --primary: oklch(0.68 0.14 264);
+  --primary-hover: oklch(0.73 0.14 264);
+  --primary-foreground: oklch(0.16 0.02 264);
+  --primary-soft: oklch(0.3 0.055 264);
+  --primary-soft-foreground: oklch(0.82 0.09 264);
+
+  --accent: oklch(0.7 0.11 190);
+  --accent-foreground: oklch(0.16 0.02 190);
+
+  --success: oklch(0.68 0.13 155);
+  --success-soft: oklch(0.32 0.05 155);
+  --warning: oklch(0.75 0.13 78);
+  --warning-soft: oklch(0.33 0.05 78);
+  --danger: oklch(0.66 0.17 25);
+  --danger-soft: oklch(0.33 0.07 25);
+
+  --ring: oklch(0.68 0.14 264 / 0.55);
+
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.3), 0 1px 3px 0 oklch(0 0 0 / 0.35);
+  --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.35), 0 8px 16px -4px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.4), 0 16px 32px -8px oklch(0 0 0 / 0.55);
 }
 
+/* ============================================================
+   MAPEO A UTILIDADES DE TAILWIND
+   ============================================================ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+
+  /* alias de compatibilidad con el código existente */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--foreground-muted);
+  --color-subtle: var(--foreground-subtle);
+
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--border-strong);
+
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-ring: var(--ring);
+
   --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
 
   --radius-sm: calc(var(--radius) - 0.25rem);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 0.25rem);
   --radius-xl: calc(var(--radius) + 0.5rem);
+  --radius-2xl: calc(var(--radius) + 0.9rem);
 
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", -apple-system, sans-serif;
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable Text",
+    "Segoe UI", system-ui, sans-serif;
 }
 
+/* ============================================================
+   BASE
+   ============================================================ */
 @layer base {
   * {
     border-color: var(--border);
@@ -95,6 +177,61 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    font-feature-settings: "kern";
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.012em;
+  }
+
+  /* Transición de tema: sutil, corta, y sólo cuando el usuario alterna
+     (la clase se añade a <html> durante ~250ms desde ThemeProvider). */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease,
+      fill 0.2s ease,
+      stroke 0.2s ease,
+      box-shadow 0.2s ease !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .theme-transition,
+    .theme-transition *,
+    .theme-transition *::before,
+    .theme-transition *::after {
+      transition: none !important;
+    }
+  }
+
+  /* Scrollbars discretas y con tema */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 9999px;
+    border: 2px solid var(--background);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--foreground-subtle);
   }
 }

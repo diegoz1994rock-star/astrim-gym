@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { validateRoutineForm, validateRoutineExerciseForm, hasValidationErrors } from "./routineValidation";
-import { emptyRoutineForm, emptyRoutineExerciseForm, ROUTINE_NAME_GROUPS, ROUTINE_NAME_OPTIONS } from "@/types/routine";
+import {
+  validateRoutineForm,
+  validateAssignRoutineForm,
+  validateRoutineExerciseForm,
+  hasValidationErrors,
+} from "./routineValidation";
+import {
+  emptyRoutineForm,
+  emptyAssignRoutineForm,
+  emptyRoutineExerciseForm,
+  ROUTINE_NAME_GROUPS,
+  ROUTINE_NAME_OPTIONS,
+} from "@/types/routine";
 
 describe("catálogo de nombres de rutina", () => {
   it("1. incluye la categoría Por distribución", () => {
@@ -53,50 +64,44 @@ describe("catálogo de nombres de rutina", () => {
 
 describe("validateRoutineForm", () => {
   it("1. acepta una rutina válida con nombre del catálogo", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Full Body" };
+    const input = { ...emptyRoutineForm(), name: "Full Body" };
     const errors = validateRoutineForm(input);
     expect(hasValidationErrors(errors)).toBe(false);
   });
 
-  it("2. rechaza una rutina sin cliente", () => {
-    const input = { ...emptyRoutineForm(), name: "Full Body", clientId: "" };
-    const errors = validateRoutineForm(input);
-    expect(errors.clientId).toBeDefined();
-  });
-
   it("3. rechaza una rutina sin nombre", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "   " };
+    const input = { ...emptyRoutineForm(), name: "   " };
     const errors = validateRoutineForm(input);
     expect(errors.name).toBeDefined();
   });
 
   it("rechaza un nombre que no pertenece al catálogo al crear", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Rutina inventada a mano" };
+    const input = { ...emptyRoutineForm(), name: "Rutina inventada a mano" };
     const errors = validateRoutineForm(input);
     expect(errors.name).toBeDefined();
   });
 
   it("acepta un nombre fuera de catálogo si coincide con el valor histórico (rutina antigua)", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Rutina antigua de Juan" };
+    const input = { ...emptyRoutineForm(), name: "Rutina antigua de Juan" };
     const errors = validateRoutineForm(input, { allowedName: "Rutina antigua de Juan" });
     expect(errors.name).toBeUndefined();
   });
 
   it("rechaza un objetivo que no pertenece al catálogo", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Full Body", description: "Objetivo inventado" };
+    const input = { ...emptyRoutineForm(), name: "Full Body", description: "Objetivo inventado" };
     const errors = validateRoutineForm(input);
     expect(errors.description).toBeDefined();
   });
 
   it("acepta el objetivo vacío (es opcional)", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Full Body", description: "" };
+    const input = { ...emptyRoutineForm(), name: "Full Body", description: "" };
     const errors = validateRoutineForm(input);
     expect(errors.description).toBeUndefined();
   });
 
   it("acepta un objetivo del catálogo", () => {
     const input = {
-      ...emptyRoutineForm("client_1"),
+      ...emptyRoutineForm(),
       name: "Push / Pull / Legs (PPL)",
       description: "Ganancia de masa muscular",
     };
@@ -106,7 +111,7 @@ describe("validateRoutineForm", () => {
 
   it("acepta un objetivo histórico fuera de catálogo si no fue modificado", () => {
     const input = {
-      ...emptyRoutineForm("client_1"),
+      ...emptyRoutineForm(),
       name: "Full Body",
       description: "Bajar de peso para la boda",
     };
@@ -115,47 +120,61 @@ describe("validateRoutineForm", () => {
   });
 
   it("no confunde rutina con objetivo: la misma rutina admite distintos objetivos válidos", () => {
-    const a = { ...emptyRoutineForm("client_1"), name: "Push / Pull / Legs (PPL)", description: "Fuerza" };
+    const a = { ...emptyRoutineForm(), name: "Push / Pull / Legs (PPL)", description: "Fuerza" };
     const b = {
-      ...emptyRoutineForm("client_2"),
+      ...emptyRoutineForm(),
       name: "Push / Pull / Legs (PPL)",
       description: "Ganancia de masa muscular",
     };
     expect(hasValidationErrors(validateRoutineForm(a))).toBe(false);
     expect(hasValidationErrors(validateRoutineForm(b))).toBe(false);
   });
+});
+
+describe("validateAssignRoutineForm", () => {
+  it("rechaza una asignación sin clientes seleccionados", () => {
+    const input = emptyAssignRoutineForm();
+    const errors = validateAssignRoutineForm(input);
+    expect(errors.clientIds).toBeDefined();
+  });
+
+  it("acepta una asignación válida con uno o varios clientes", () => {
+    const input = { ...emptyAssignRoutineForm(), clientIds: ["client_1", "client_2", "client_3"] };
+    const errors = validateAssignRoutineForm(input);
+    expect(hasValidationErrors(errors)).toBe(false);
+  });
 
   it("4a. rechaza una fecha de inicio inválida", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Full Body", startDate: "fecha-invalida" };
-    const errors = validateRoutineForm(input);
+    const input = { ...emptyAssignRoutineForm(), clientIds: ["client_1"], startDate: "fecha-invalida" };
+    const errors = validateAssignRoutineForm(input);
     expect(errors.startDate).toBeDefined();
   });
 
   it("4b. rechaza fecha final anterior a la fecha de inicio", () => {
     const input = {
-      ...emptyRoutineForm("client_1"),
-      name: "Full Body",
+      ...emptyAssignRoutineForm(),
+      clientIds: ["client_1"],
       startDate: "2026-09-01",
       endDate: "2026-08-01",
     };
-    const errors = validateRoutineForm(input);
+    const errors = validateAssignRoutineForm(input);
     expect(errors.endDate).toBeDefined();
   });
 
   it("4c. acepta fecha final igual o posterior a la de inicio", () => {
     const input = {
-      ...emptyRoutineForm("client_1"),
-      name: "Full Body",
+      ...emptyAssignRoutineForm(),
+      clientIds: ["client_1"],
       startDate: "2026-09-01",
       endDate: "2026-09-01",
     };
-    const errors = validateRoutineForm(input);
+    const errors = validateAssignRoutineForm(input);
     expect(hasValidationErrors(errors)).toBe(false);
   });
 
   it("4d. permite no especificar fecha final (rutina abierta)", () => {
-    const input = { ...emptyRoutineForm("client_1"), name: "Full Body", endDate: null };
-    const errors = validateRoutineForm(input);
+    const input = { ...emptyAssignRoutineForm(), clientIds: ["client_1"], endDate: null };
+    const errors = validateAssignRoutineForm(input);
     expect(hasValidationErrors(errors)).toBe(false);
   });
 });

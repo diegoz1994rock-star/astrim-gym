@@ -24,6 +24,10 @@
     {
       "identifier": "fs:allow-exists",
       "allow": [{ "path": "$APPLOCALDATA/photos" }, { "path": "$APPLOCALDATA/photos/**" }]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "$APPLOCALDATA/photos/**" }]
     }
   ]
 }

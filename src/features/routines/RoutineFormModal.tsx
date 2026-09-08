@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { validateRoutineForm } from "@/lib/domain/routineValidation";
@@ -19,15 +18,11 @@ import {
   type RoutineFormInput,
   type RoutineListItem,
 } from "@/types/routine";
-import type { ClientListItem } from "@/types/client";
 
 interface RoutineFormModalProps {
   open: boolean;
   gymId: string;
   routine: RoutineListItem | null;
-  clients: ClientListItem[];
-  /** Cliente preseleccionado al crear una rutina desde su perfil (opcional). */
-  defaultClientId?: string;
   onClose: () => void;
   onSaved: (routineId: string) => void;
 }
@@ -37,36 +32,29 @@ function FieldError({ message }: { message?: string }) {
   return <p className="mt-1 text-xs text-danger">{message}</p>;
 }
 
-function toFormInput(routine: RoutineListItem | null, defaultClientId?: string): RoutineFormInput {
-  return routine ? routineToFormInput(routine) : emptyRoutineForm(defaultClientId);
+function toFormInput(routine: RoutineListItem | null): RoutineFormInput {
+  return routine ? routineToFormInput(routine) : emptyRoutineForm();
 }
 
 export function RoutineFormModal({
   open,
   gymId,
   routine,
-  clients,
-  defaultClientId,
   onClose,
   onSaved,
 }: RoutineFormModalProps) {
-  const [form, setForm] = useState<RoutineFormInput>(() => toFormInput(routine, defaultClientId));
+  const [form, setForm] = useState<RoutineFormInput>(() => toFormInput(routine));
   const [errors, setErrors] = useState<RoutineValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setForm(toFormInput(routine, defaultClientId));
+      setForm(toFormInput(routine));
       setErrors({});
       setFormError(null);
     }
-  }, [open, routine, defaultClientId]);
-
-  const selectedClient = useMemo(
-    () => clients.find((c) => c.id === form.clientId) ?? null,
-    [clients, form.clientId],
-  );
+  }, [open, routine]);
 
   function update<K extends keyof RoutineFormInput>(key: K, value: RoutineFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -108,32 +96,12 @@ export function RoutineFormModal({
       open={open}
       onClose={onClose}
       title={routine ? "Editar rutina" : "Nueva rutina"}
-      description={routine ? routine.name : "Asigna un plan de entrenamiento a un cliente."}
+      description={
+        routine ? routine.name : "Crea una plantilla de rutina; luego podrás asignarla a un cliente."
+      }
       widthClassName="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">Cliente *</label>
-          <Select
-            value={form.clientId}
-            onChange={(e) => update("clientId", e.target.value)}
-            disabled={Boolean(routine) || Boolean(defaultClientId)}
-          >
-            <option value="">Selecciona un cliente</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name} {client.document ? `— ${client.document}` : ""}
-              </option>
-            ))}
-          </Select>
-          <FieldError message={errors.clientId} />
-          {selectedClient && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {selectedClient.trainerName ? `Entrenador: ${selectedClient.trainerName}` : "Sin entrenador asignado"}
-            </p>
-          )}
-        </div>
-
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">
             Nombre de la rutina *
@@ -173,31 +141,6 @@ export function RoutineFormModal({
             ))}
           </Select>
           <FieldError message={errors.description} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Fecha de inicio
-            </label>
-            <Input
-              type="date"
-              value={form.startDate ?? ""}
-              onChange={(e) => update("startDate", e.target.value || null)}
-            />
-            <FieldError message={errors.startDate} />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Fecha final (opcional)
-            </label>
-            <Input
-              type="date"
-              value={form.endDate ?? ""}
-              onChange={(e) => update("endDate", e.target.value || null)}
-            />
-            <FieldError message={errors.endDate} />
-          </div>
         </div>
 
         <div>

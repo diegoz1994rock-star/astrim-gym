@@ -418,18 +418,6 @@ export function ClientFormModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Grasa corporal (%)
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                value={form.bodyFat ?? ""}
-                onChange={(e) => update("bodyFat", e.target.value === "" ? null : Number(e.target.value))}
-              />
-              <FieldError message={errors.bodyFat} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
                 Masa muscular (kg)
               </label>
               <Input

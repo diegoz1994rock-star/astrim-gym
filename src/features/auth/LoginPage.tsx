@@ -1,21 +1,27 @@
 import { useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, LockKeyhole, Mail } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { requestPasswordReset } from "@/lib/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/Spinner";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("admin@astrimgym.demo");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setResetMsg(null);
     setIsSubmitting(true);
     try {
       await login(email, password);
@@ -26,24 +32,38 @@ export function LoginPage() {
     }
   }
 
+  async function handleReset() {
+    setError(null);
+    setResetMsg(null);
+    setResetting(true);
+    try {
+      await requestPasswordReset(email);
+      setResetMsg(
+        `Si hay una cuenta con ${email.trim()}, te llegó un correo con un enlace para poner una contraseña nueva. Revisá también el spam.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo enviar el correo.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
-    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between overflow-hidden p-12 text-primary-foreground lg:flex">
-        {/* Fotografía provista por el gimnasio: cubre el panel completo,
-            sin recortes destructivos (bg-cover conserva la proporción). */}
+    <div className="grid min-h-screen grid-cols-1 bg-background lg:grid-cols-[1.05fr_1fr]">
+      {/* Panel visual (fotografía del gimnasio) */}
+      <div className="relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url(/login-background.png)" }}
         />
-        {/* Overlay sutil (misma paleta de marca que antes) solo para
-            garantizar legibilidad del texto; la fotografía sigue siendo
-            claramente visible debajo. */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/75 via-primary/60 to-accent/55" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_45%)]" />
-        <div className="relative flex items-center gap-4">
-          <img src="/astrim-icon.png" alt="" className="h-20 w-20 object-contain" />
-          <img src="/astrim-wordmark.png" alt="ASTRIM GYM" className="h-12 w-auto object-contain" />
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.32_0.09_264/0.88)] via-[oklch(0.28_0.07_255/0.78)] to-[oklch(0.4_0.06_210/0.62)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,oklch(1_0_0/0.14),transparent_46%)]" />
+
+        <img
+          src="/astrim-full-logo.png"
+          alt="ASTRIM GYM"
+          className="relative h-28 w-auto max-w-[75%] self-start object-contain object-left drop-shadow-[0_4px_16px_rgba(0,0,0,0.55)]"
+        />
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -51,21 +71,26 @@ export function LoginPage() {
           transition={{ duration: 0.5 }}
           className="relative max-w-md"
         >
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight">
+          <h1 className="text-[2.6rem] font-semibold leading-[1.1] tracking-tight">
             Administra tu gimnasio con claridad total.
           </h1>
-          <p className="mt-4 text-primary-foreground/80">
+          <p className="mt-4 text-[15px] leading-relaxed text-white/75">
             Clientes, membresías, pagos, rutinas y progreso en un solo panel,
             diseñado para crecer contigo.
           </p>
         </motion.div>
 
-        <p className="relative text-sm text-primary-foreground/60">
+        <p className="relative text-sm text-white/55">
           © {new Date().getFullYear()} ASTRIM GYM — Panel administrativo
         </p>
       </div>
 
-      <div className="flex items-center justify-center bg-background p-8">
+      {/* Panel de formulario */}
+      <div className="relative flex items-center justify-center p-8">
+        <div className="absolute right-6 top-6">
+          <ThemeToggle />
+        </div>
+
         <motion.form
           onSubmit={handleSubmit}
           initial={{ opacity: 0, y: 12 }}
@@ -73,15 +98,14 @@ export function LoginPage() {
           transition={{ duration: 0.4 }}
           className="w-full max-w-sm"
         >
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <img src="/astrim-icon.png" alt="" className="h-14 w-14 object-contain" />
-            <img src="/astrim-wordmark.png" alt="ASTRIM GYM" className="h-8 w-auto object-contain" />
-          </div>
+          <img
+            src="/astrim-mark.png"
+            alt="ASTRIM GYM"
+            className="mx-auto mb-6 h-24 w-24 rounded-2xl object-cover shadow-lg ring-1 ring-white/10"
+          />
 
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-            Iniciar sesión
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Iniciar sesión</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Ingresa tus credenciales para acceder al panel administrativo.
           </p>
 
@@ -91,7 +115,7 @@ export function LoginPage() {
                 Correo electrónico
               </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
                 <Input
                   type="email"
                   className="pl-10"
@@ -105,11 +129,9 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Contraseña
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Contraseña</label>
               <div className="relative">
-                <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   className="pl-10 pr-10"
@@ -122,35 +144,44 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-subtle transition-colors hover:text-foreground"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={resetting}
+                className="mt-2 ml-auto block text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-60"
+              >
+                {resetting ? "Enviando…" : "¿Olvidaste tu contraseña?"}
+              </button>
             </div>
 
             {error && (
-              <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+              <div className="rounded-md border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">
                 {error}
+              </div>
+            )}
+            {resetMsg && (
+              <div className="flex items-start gap-2 rounded-md border border-success/25 bg-success-soft px-4 py-3 text-sm text-success">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{resetMsg}</span>
               </div>
             )}
 
             <Button type="submit" size="lg" disabled={isSubmitting} className="mt-2 w-full">
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verificando...
+                  <Spinner />
+                  Verificando…
                 </>
               ) : (
                 "Ingresar"
               )}
             </Button>
-          </div>
-
-          <div className="mt-6 rounded-lg border border-border bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-            Acceso de demostración: <strong>admin@astrimgym.demo</strong> / contraseña{" "}
-            <strong>admin123</strong>
           </div>
         </motion.form>
       </div>

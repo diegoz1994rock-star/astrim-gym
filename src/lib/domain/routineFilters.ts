@@ -6,13 +6,9 @@ export function filterRoutines(routines: RoutineListItem[], filters: RoutineFilt
 
   return routines.filter((routine) => {
     if (filters.status !== "ALL" && routine.status !== filters.status) return false;
-    if (filters.dateFrom && (!routine.startDate || routine.startDate < filters.dateFrom)) return false;
-    if (filters.dateTo && (!routine.startDate || routine.startDate > filters.dateTo)) return false;
 
     if (search) {
-      const haystack = normalizeSearchText(
-        `${routine.clientName} ${routine.clientDocument ?? ""} ${routine.name}`,
-      );
+      const haystack = normalizeSearchText(routine.name);
       if (!haystack.includes(search)) return false;
     }
 

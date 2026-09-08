@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { ExerciseConfigFields } from "@/components/ExerciseConfigFields";
 import { validateRoutineExerciseForm } from "@/lib/domain/routineValidation";
 import type { RoutineExerciseValidationErrors } from "@/lib/domain/routineValidation";
 import {
@@ -16,12 +15,10 @@ import {
 import * as routineService from "@/lib/services/routineService";
 import { RoutineExerciseValidationError } from "@/lib/services/routineService";
 import {
-  INTENSITY_LABEL_OPTIONS,
   emptyRoutineExerciseForm,
   routineExerciseToFormInput,
   type RoutineExerciseFormInput,
   type RoutineExerciseListItem,
-  type TimeUnit,
 } from "@/types/routine";
 import type { ExerciseOptionRow } from "@/types/db";
 
@@ -99,13 +96,6 @@ export function RoutineExerciseFormModal({
   const cardioProfile = getCardioEquipmentProfile(selectedExercise?.equipment ?? null);
   const mode = resolveEffectiveMode(hasLegacyStrengthValues(form), catalogMode);
 
-  function update<K extends keyof RoutineExerciseFormInput>(
-    key: K,
-    value: RoutineExerciseFormInput[K],
-  ) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
   /** Cambiar de categoría o de ejercicio limpia los campos numéricos del modo anterior. */
   function resetModeFields(exerciseId: string) {
     setForm((prev) => ({ ...emptyRoutineExerciseForm(), exerciseId, notes: prev.notes }));
@@ -118,15 +108,6 @@ export function RoutineExerciseFormModal({
 
   function handleExerciseChange(exerciseId: string) {
     resetModeFields(exerciseId);
-  }
-
-  function handleTimeValueChange(raw: string) {
-    const value = raw === "" ? null : Number(raw);
-    setForm((prev) => ({
-      ...prev,
-      timeValue: value,
-      timeUnit: prev.timeUnit ?? (value !== null ? "MINUTES" : null),
-    }));
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -203,182 +184,13 @@ export function RoutineExerciseFormModal({
           <FieldError message={errors.exerciseId} />
         </div>
 
-        {mode === "STRENGTH" && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Series</label>
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={form.sets ?? ""}
-                onChange={(e) => update("sets", e.target.value === "" ? null : Number(e.target.value))}
-              />
-              <FieldError message={errors.sets} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Repeticiones</label>
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={form.reps ?? ""}
-                onChange={(e) => update("reps", e.target.value === "" ? null : Number(e.target.value))}
-              />
-              <FieldError message={errors.reps} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Peso (kg)</label>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                value={form.weight ?? ""}
-                onChange={(e) => update("weight", e.target.value === "" ? null : Number(e.target.value))}
-              />
-              <FieldError message={errors.weight} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Descanso (segundos)
-              </label>
-              <Input
-                type="number"
-                min={0}
-                step={5}
-                value={form.restSeconds ?? ""}
-                onChange={(e) =>
-                  update("restSeconds", e.target.value === "" ? null : Number(e.target.value))
-                }
-              />
-              <FieldError message={errors.restSeconds} />
-            </div>
-          </div>
-        )}
-
-        {(mode === "CARDIO_TIME" || mode === "MOBILITY") && (
-          <>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Tiempo *</label>
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1"
-                  type="number"
-                  min={0}
-                  step="any"
-                  placeholder="Ej. 30"
-                  value={form.timeValue ?? ""}
-                  onChange={(e) => handleTimeValueChange(e.target.value)}
-                />
-                <Select
-                  className="w-32 shrink-0"
-                  value={form.timeUnit ?? "MINUTES"}
-                  onChange={(e) => update("timeUnit", e.target.value as TimeUnit)}
-                >
-                  <option value="MINUTES">Minutos</option>
-                  <option value="HOURS">Horas</option>
-                </Select>
-              </div>
-              <FieldError message={errors.timeValue} />
-            </div>
-
-            {mode === "CARDIO_TIME" && cardioProfile === "TREADMILL" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Velocidad (km/h) *
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={form.speedKmh ?? ""}
-                    onChange={(e) =>
-                      update("speedKmh", e.target.value === "" ? null : Number(e.target.value))
-                    }
-                  />
-                  <FieldError message={errors.speedKmh} />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    Inclinación (%)
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={form.inclinePercent ?? ""}
-                    onChange={(e) =>
-                      update("inclinePercent", e.target.value === "" ? null : Number(e.target.value))
-                    }
-                  />
-                  <FieldError message={errors.inclinePercent} />
-                </div>
-              </div>
-            )}
-
-            {mode === "CARDIO_TIME" &&
-              (cardioProfile === "BIKE" || cardioProfile === "ROWER" || cardioProfile === "CLIMBER") && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">
-                      {cardioProfile === "CLIMBER" ? "Nivel *" : "Resistencia (nivel) *"}
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={form.resistanceLevel ?? ""}
-                      onChange={(e) =>
-                        update("resistanceLevel", e.target.value === "" ? null : Number(e.target.value))
-                      }
-                    />
-                    <FieldError message={errors.resistanceLevel} />
-                  </div>
-                  {cardioProfile === "BIKE" && (
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-foreground">
-                        RPM (opcional)
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={form.rpm ?? ""}
-                        onChange={(e) =>
-                          update("rpm", e.target.value === "" ? null : Number(e.target.value))
-                        }
-                      />
-                      <FieldError message={errors.rpm} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {mode === "CARDIO_TIME" && cardioProfile === "GENERIC" && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">Intensidad *</label>
-                <Select
-                  value={form.intensityLabel ?? ""}
-                  onChange={(e) => update("intensityLabel", e.target.value || null)}
-                >
-                  <option value="">Selecciona la intensidad</option>
-                  {INTENSITY_LABEL_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </Select>
-                <FieldError message={errors.intensityLabel} />
-              </div>
-            )}
-          </>
-        )}
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">Observaciones</label>
-          <Textarea rows={2} value={form.notes} onChange={(e) => update("notes", e.target.value)} />
-        </div>
+        <ExerciseConfigFields
+          value={form}
+          mode={mode}
+          cardioProfile={cardioProfile}
+          errors={errors}
+          onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+        />
 
         {formError && (
           <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">

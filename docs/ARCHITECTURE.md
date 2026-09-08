@@ -26,6 +26,14 @@ Regla fija: **los componentes de React nunca ejecutan SQL directamente**. Siempr
 Esto es lo que permitirá, en una fase futura, sustituir o complementar el repositorio SQLite por uno que
 también sincronice con Firebase, sin tocar la UI ni los servicios.
 
+## Capa de nube (Fase 3, `src/lib/cloud` + `src/lib/sync`)
+
+SQLite sigue siendo la fuente de verdad. Los triggers de la migración `0024` encolan en
+`outbox` cada cambio de las entidades que la app de clientes necesita; `OutboxSyncWorker`
+las empuja a Firestore (auth como "dueño del gimnasio", sin service account). La app de
+clientes lee Firestore directamente con Security Rules. Ver `docs/CLOUD_SYNC.md` y
+`docs/FIREBASE.md`.
+
 ## Estructura de carpetas
 
 ```

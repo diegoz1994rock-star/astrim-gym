@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
 import { startLanServerBridge } from "@/lib/lan/lanServerBridge";
+import { startOutboxSync } from "@/lib/sync/OutboxSyncWorker";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
@@ -12,7 +14,12 @@ import { MembershipsPage } from "@/features/memberships/MembershipsPage";
 import { PaymentsPage } from "@/features/payments/PaymentsPage";
 import { RoutinesPage } from "@/features/routines/RoutinesPage";
 import { RoutineDetailPage } from "@/features/routines/RoutineDetailPage";
+import { MealPlansPage } from "@/features/mealPlans/MealPlansPage";
+import { MealPlanDetailPage } from "@/features/mealPlans/MealPlanDetailPage";
+import { FoodsGalleryPage } from "@/features/mealPlans/FoodsGalleryPage";
 import { ExercisesPage } from "@/features/exercises/ExercisesPage";
+import { ClassesPage } from "@/features/classes/ClassesPage";
+import { ClassDetailPage } from "@/features/classes/ClassDetailPage";
 import { AttendancePage } from "@/features/attendance/AttendancePage";
 import { KioskPage } from "@/features/kiosk/KioskPage";
 import { ProgressPage } from "@/features/progress/ProgressPage";
@@ -126,11 +133,61 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/alimentacion"
+        element={
+          <ProtectedRoute>
+            <AppShell title="Plan de Alimentación">
+              <MealPlansPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/alimentacion/alimentos"
+        element={
+          <ProtectedRoute>
+            <AppShell title="Plan de Alimentación">
+              <FoodsGalleryPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/alimentacion/:mealPlanId"
+        element={
+          <ProtectedRoute>
+            <AppShell title="Plan de Alimentación">
+              <MealPlanDetailPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/ejercicios"
         element={
           <ProtectedRoute>
             <AppShell title="Ejercicios">
               <ExercisesPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clases"
+        element={
+          <ProtectedRoute>
+            <AppShell title="Clases y Sesiones">
+              <ClassesPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clases/:classId"
+        element={
+          <ProtectedRoute>
+            <AppShell title="Clases y Sesiones">
+              <ClassDetailPage />
             </AppShell>
           </ProtectedRoute>
         }
@@ -192,11 +249,17 @@ export default function App() {
     };
   }, []);
 
+  // Sincronización SQLite -> Firestore. El worker se autoprotege: si la
+  // nube no está configurada o no hay sesión, no hace nada.
+  useEffect(() => startOutboxSync(), []);
+
   return (
-    <AuthProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

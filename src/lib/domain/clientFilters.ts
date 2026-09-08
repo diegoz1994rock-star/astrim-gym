@@ -11,7 +11,7 @@ export function filterClients(clients: ClientListItem[], filters: ClientFilters)
 
     if (search) {
       const haystack = normalizeSearchText(
-        `${client.name} ${client.document ?? ""} ${client.phone ?? ""}`,
+        `${client.name} ${client.document ?? ""} ${client.phone ?? ""} ${client.attendanceCode ?? ""}`,
       );
       if (!haystack.includes(search)) return false;
     }

@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Config de Firebase por proyecto (cada quien pone la suya). Ver README y
+# docs/FIREBASE.md. El .example sí se versiona.
+google-services.json
+!google-services.json.example

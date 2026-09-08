@@ -1,3 +1,13 @@
+# === Firma de Android (PRIVADO — nunca versionar) ===
+.android-signing/
+*.keystore
+*.jks
+
+# === APKs generados ===
+dist-apk/
+*.apk
+*.aab
+
 # === Dependencias instaladas (regenerables con npm install) ===
 node_modules/
 **/node_modules/
@@ -22,11 +32,33 @@ target/
 **/target/
 **/*.rs.bk
 
-# === Proyecto Android generado por Tauri (regenerable con tauri android init) ===
-src-tauri/gen/android/
-astrim-recepcion/src-tauri/gen/android/
+# === Proyecto Android generado por Tauri ===
+# El código fuente de src-tauri/gen/android SÍ se versiona (necesario para
+# persistir permisos del manifest, p.ej. la cámara para reconocimiento
+# facial) — solo se ignoran sus artefactos de build, regenerables.
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/**/.cxx/
+src-tauri/gen/android/**/local.properties
+
+# astrim-recepcion también necesita persistir el permiso de cámara: mismo
+# tratamiento que el proyecto raíz (código fuente versionado, build ignorado).
+astrim-recepcion/src-tauri/gen/android/app/build/
+astrim-recepcion/src-tauri/gen/android/.gradle/
+astrim-recepcion/src-tauri/gen/android/**/.cxx/
+astrim-recepcion/src-tauri/gen/android/**/local.properties
+
 src-tauri/gen/apple/
 astrim-recepcion/src-tauri/gen/apple/
+
+# === astrim-cliente-app: proyecto Android nativo (Kotlin/Gradle), no
+# generado por Tauri — mismo criterio, código fuente versionado, artefactos
+# de build regenerables ignorados ===
+astrim-cliente-app/app/build/
+astrim-cliente-app/build/
+astrim-cliente-app/.gradle/
+astrim-cliente-app/**/.cxx/
+astrim-cliente-app/local.properties
 
 # === Base de datos local de la app (datos de ejecución, no código) ===
 *.db
@@ -62,6 +94,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.tmp
+
+# === Claude Code (config personal, no de equipo) ===
+.claude/settings.local.json
 
 # === Variables de entorno (por si se añaden en el futuro) ===
 .env

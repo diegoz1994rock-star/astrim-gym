@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Smartphone } from "lucide-react";
+import { Plus, Smartphone, Trash2 } from "lucide-react";
 import * as deviceService from "@/lib/services/deviceService";
 import { DEVICE_TYPE_LABELS, type DeviceListItem } from "@/types/device";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ export function DevicesTab({ gymId }: { gymId: string }) {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<DeviceListItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const loadDevices = useCallback(async () => {
     setLoading(true);
@@ -54,6 +56,22 @@ export function DevicesTab({ gymId }: { gymId: string }) {
     await loadDevices();
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmDeleteSelected() {
+    await deviceService.deleteDevices(gymId, [...selectedIds]);
+    setSelectedIds(new Set());
+    setDeleteConfirmOpen(false);
+    await loadDevices();
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -63,10 +81,18 @@ export function DevicesTab({ gymId }: { gymId: string }) {
             Tablets de recepción y otros dispositivos vinculados a tu gimnasio.
           </p>
         </div>
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Agregar dispositivo
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
+              <Trash2 className="h-4 w-4" />
+              Eliminar seleccionado{selectedIds.size > 1 ? "s" : ""} ({selectedIds.size})
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Agregar dispositivo
+          </Button>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Cargando dispositivos...</p>}
@@ -88,19 +114,27 @@ export function DevicesTab({ gymId }: { gymId: string }) {
           return (
             <Card key={device.id}>
               <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-foreground">{device.name}</p>
-                    <Badge tone={meta.tone}>{meta.label}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {DEVICE_TYPE_LABELS[device.deviceType]}
-                  </p>
-                  {device.status === "ACTIVE" && (
-                    <p className="text-xs text-muted-foreground">
-                      Última conexión: {formatRelativeTime(device.lastSeenAt)}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(device.id)}
+                    onChange={() => toggleSelected(device.id)}
+                    className="h-4 w-4 rounded border-border-strong"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">{device.name}</p>
+                      <Badge tone={meta.tone}>{meta.label}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {DEVICE_TYPE_LABELS[device.deviceType]}
                     </p>
-                  )}
+                    {device.status === "ACTIVE" && (
+                      <p className="text-xs text-muted-foreground">
+                        Última conexión: {formatRelativeTime(device.lastSeenAt)}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 {(device.status === "ACTIVE" || device.status === "PENDING") && (
                   <Button variant="secondary" size="sm" onClick={() => setRevokeTarget(device)}>
@@ -128,6 +162,16 @@ export function DevicesTab({ gymId }: { gymId: string }) {
         danger
         onConfirm={confirmRevoke}
         onCancel={() => setRevokeTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title={`Eliminar ${selectedIds.size > 1 ? "dispositivos" : "dispositivo"}`}
+        description="Esto borra el/los registro(s) por completo (no solo los revoca). Si el dispositivo sigue instalado en una tablet, deberá vincularse de nuevo con un código nuevo para volver a funcionar."
+        confirmLabel="Eliminar"
+        danger
+        onConfirm={confirmDeleteSelected}
+        onCancel={() => setDeleteConfirmOpen(false)}
       />
     </div>
   );

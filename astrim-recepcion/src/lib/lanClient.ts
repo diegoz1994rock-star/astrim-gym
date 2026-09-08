@@ -63,12 +63,20 @@ export async function pairWithServer(host: string, code: string): Promise<PairRe
 export type MembershipStatus = "ACTIVE" | "EXPIRING_SOON" | "EXPIRED" | "SUSPENDED" | "CANCELLED";
 
 export type AccessOutcome =
-  | { kind: "ENTRY_ALLOWED"; clientName: string; time: string }
-  | { kind: "EXIT_ALLOWED"; clientName: string; time: string; durationMinutes: number | null }
-  | { kind: "DUPLICATE_IGNORED"; clientName: string }
+  | { kind: "ENTRY_ALLOWED"; clientName: string; photoBase64: string | null; time: string }
+  | {
+      kind: "EXIT_ALLOWED";
+      clientName: string;
+      photoBase64: string | null;
+      time: string;
+      durationMinutes: number | null;
+    }
+  | { kind: "DUPLICATE_IGNORED"; clientName: string; photoBase64: string | null }
   | { kind: "DENIED_CODE_NOT_FOUND" }
   | { kind: "DENIED_CLIENT_INACTIVE" }
-  | { kind: "DENIED_MEMBERSHIP_INVALID"; membershipStatus: MembershipStatus | null };
+  | { kind: "DENIED_MEMBERSHIP_INVALID"; membershipStatus: MembershipStatus | null }
+  /** Solo la devuelve /access-face: nadie coincidió con el rostro. */
+  | { kind: "FACE_NOT_RECOGNIZED" };
 
 export type AccessRequestResult =
   | { status: "OK"; outcome: AccessOutcome }
@@ -85,6 +93,33 @@ export async function registerAccess(
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}` },
       body: JSON.stringify({ code }),
+    });
+    if (response.status === 401) {
+      return { status: "UNAUTHORIZED" };
+    }
+    const data = await response.json();
+    return { status: "OK", outcome: data as AccessOutcome };
+  } catch {
+    return { status: "NETWORK_ERROR" };
+  }
+}
+
+/**
+ * Nunca envía la foto del rostro: solo el embedding (128 floats) ya
+ * calculado en el propio dispositivo. La comparación siempre ocurre en el
+ * servidor (esta app no tiene ni tendrá una copia local de los rostros
+ * enrolados), por eso no hay equivalente offline de esta función.
+ */
+export async function registerAccessByFace(
+  host: string,
+  apiToken: string,
+  embedding: number[],
+): Promise<AccessRequestResult> {
+  try {
+    const response = await fetchWithTimeout(`${baseUrl(host)}/access-face`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}` },
+      body: JSON.stringify({ embedding }),
     });
     if (response.status === 401) {
       return { status: "UNAUTHORIZED" };

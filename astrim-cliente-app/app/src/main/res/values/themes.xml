@@ -1,0 +1,10 @@
+<resources>
+    <!-- El contenido real de la UI es 100% Compose (ver ui/theme/Theme.kt);
+         este tema solo define la ventana antes de que Compose tome control,
+         para que no haya un flash blanco al abrir la app. -->
+    <style name="Theme.AstrimCliente" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0D0D0D</item>
+        <item name="android:statusBarColor">#0D0D0D</item>
+        <item name="android:navigationBarColor">#0D0D0D</item>
+    </style>
+</resources>

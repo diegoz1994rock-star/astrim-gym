@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#04060a" />
+<title>ASTRIM · Consola de Operador</title>
+<link rel="icon" href="astrim-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #04060a;
+    --bg-2: #070b12;
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-strong: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #e9edf3;
+    --muted: #8a95a6;
+    --subtle: #5c6675;
+    --accent: #57f287;
+    --accent-2: #22d3ee;
+    --accent-ink: #04140a;
+    --danger: #ff5c72;
+    --warn: #ffbf47;
+    --ok: #57f287;
+    --radius: 16px;
+    --shadow-glow: 0 0 0 1px rgba(87, 242, 135, 0.25), 0 18px 50px -12px rgba(87, 242, 135, 0.4);
+    font-synthesis: none;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Fondo futurista: grilla + halos de acento */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(60% 45% at 15% 0%, rgba(87, 242, 135, 0.13), transparent 60%),
+      radial-gradient(55% 45% at 100% 20%, rgba(34, 211, 238, 0.12), transparent 55%),
+      radial-gradient(50% 50% at 50% 120%, rgba(87, 242, 135, 0.08), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 80%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  h1, h2, h3, .num { font-family: "Space Grotesk", "Inter", sans-serif; letter-spacing: -0.01em; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+  }
+
+  input, select {
+    font: inherit;
+    color: var(--text);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 11px 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus {
+    border-color: rgba(87, 242, 135, 0.55);
+    box-shadow: 0 0 0 3px rgba(87, 242, 135, 0.12);
+  }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%238a95a6' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; padding-right: 34px; }
+  label { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* ---------- Botones ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border-radius: 11px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: transform 0.12s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: linear-gradient(135deg, #57f287, #22d3ee);
+    color: var(--accent-ink);
+    box-shadow: 0 10px 30px -8px rgba(87, 242, 135, 0.5);
+  }
+  .btn-primary:hover { box-shadow: 0 12px 38px -6px rgba(87, 242, 135, 0.65); }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { background: var(--surface-strong); border-color: var(--border-strong); }
+  .btn-danger { background: rgba(255, 92, 114, 0.12); border: 1px solid rgba(255, 92, 114, 0.3); color: #ff8a99; }
+  .btn-danger:hover { background: rgba(255, 92, 114, 0.2); }
+  .btn-sm { padding: 7px 12px; font-size: 12.5px; border-radius: 9px; }
+  .btn[disabled] { opacity: 0.5; pointer-events: none; }
+
+  /* ---------- Login ---------- */
+  #login {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+  @media (max-height: 720px) {
+    #login { align-items: flex-start; }
+  }
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 28px 28px 30px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.8);
+    text-align: center;
+  }
+  .login-logo {
+    width: min(72vw, 300px);
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 12px;
+    filter: drop-shadow(0 0 48px rgba(87, 242, 135, 0.5)) drop-shadow(0 0 20px rgba(34, 211, 238, 0.34));
+    animation: logoFloat 5s ease-in-out infinite;
+  }
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .brand-kicker {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .login-card h1 { font-size: 21px; margin: 4px 0 3px; }
+  .login-card p.sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .login-card form { display: grid; gap: 13px; text-align: left; }
+  .field-pass { position: relative; }
+  .field-pass button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    color: var(--subtle); padding: 6px; border-radius: 7px;
+  }
+  .field-pass button:hover { color: var(--text); }
+  .form-error {
+    background: rgba(255, 92, 114, 0.1);
+    border: 1px solid rgba(255, 92, 114, 0.28);
+    color: #ff9aa8;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+  }
+
+  /* ---------- App shell ---------- */
+  #app { display: none; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    background: rgba(4, 6, 10, 0.7);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar img { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 0 14px rgba(87, 242, 135, 0.45)); }
+  .topbar .title { font-weight: 600; font-size: 15px; }
+  .topbar .title span { display: block; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .topbar .spacer { flex: 1; }
+  .topbar .op-email { font-size: 12.5px; color: var(--muted); }
+
+  main { padding: clamp(18px, 4vw, 36px) clamp(16px, 4vw, 40px) 80px; max-width: 1180px; margin: 0 auto; }
+
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head h2 { font-size: clamp(20px, 3.4vw, 26px); }
+  .page-head p { color: var(--muted); font-size: 13px; margin-top: 3px; }
+
+  /* ---------- Stat tiles ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 15px 16px;
+  }
+  .tile .k { font-size: 11.5px; color: var(--muted); font-weight: 500; letter-spacing: 0.02em; }
+  .tile .v { font-size: 27px; font-weight: 700; margin-top: 6px; font-family: "Space Grotesk", sans-serif; }
+  .tile.accent .v { color: var(--accent); }
+  .tile.warn .v { color: var(--warn); }
+  .tile.danger .v { color: var(--danger); }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar input { max-width: 320px; }
+
+  /* ---------- Gym list ---------- */
+  .gym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .gym-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 17px 17px 15px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .gym-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+  .gym-card .gc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .gym-card h3 { font-size: 16px; }
+  .gym-card .owner { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .gym-card .gid {
+    font-family: "Space Grotesk", monospace;
+    font-size: 11px; color: var(--subtle);
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .gym-card .gid:hover { color: var(--muted); }
+
+  .badge {
+    font-size: 11px; font-weight: 600;
+    padding: 4px 9px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.ACTIVE { color: var(--ok); background: rgba(87, 242, 135, 0.12); }
+  .badge.EXPIRING { color: var(--warn); background: rgba(255, 191, 71, 0.12); }
+  .badge.EXPIRED { color: var(--danger); background: rgba(255, 92, 114, 0.12); }
+  .badge.SUSPENDED { color: #b9c2d0; background: rgba(255, 255, 255, 0.07); }
+
+  .license-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+  }
+  .license-row .lbl { font-size: 11.5px; color: var(--muted); }
+  .license-row .val { font-size: 13px; font-weight: 600; }
+  .license-row .val small { color: var(--muted); font-weight: 400; }
+
+  .pass-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 12px;
+    background: rgba(87, 242, 135, 0.05);
+    border: 1px solid rgba(87, 242, 135, 0.18);
+    border-radius: 11px;
+  }
+  .pass-row .lbl { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .pass-tag {
+    font-size: 10px; font-weight: 600; color: var(--warn);
+    background: rgba(255, 191, 71, 0.14); padding: 2px 6px; border-radius: 999px;
+  }
+  .pass-val {
+    font-family: "Space Grotesk", monospace; font-size: 14px; font-weight: 600;
+    color: var(--text); letter-spacing: 0.04em; margin-top: 3px; display: block;
+    word-break: break-all;
+  }
+  .pass-none { font-size: 12px; color: var(--subtle); margin-top: 3px; }
+  .pass-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .gc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gc-actions .btn-sm { flex: 1 1 auto; }
+
+  .empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--muted); font-size: 14px;
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+
+  /* ---------- Modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(2, 3, 6, 0.72);
+    backdrop-filter: blur(4px);
+    display: grid; place-items: center;
+    padding: 20px;
+    animation: fade 0.14s ease;
+  }
+  @keyframes fade { from { opacity: 0; } }
+  .modal {
+    width: 100%; max-width: 440px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.85);
+    animation: pop 0.16s ease;
+  }
+  @keyframes pop { from { transform: translateY(8px) scale(0.98); opacity: 0; } }
+  .modal h3 { font-size: 18px; margin-bottom: 3px; }
+  .modal .msub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .modal form { display: grid; gap: 13px; }
+  .modal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal .actions { display: flex; gap: 10px; margin-top: 6px; }
+  .modal .actions .btn { flex: 1; }
+  .gen-pass { display: flex; gap: 8px; }
+  .gen-pass input { flex: 1; }
+
+  .cred-box {
+    background: rgba(87, 242, 135, 0.06);
+    border: 1px solid rgba(87, 242, 135, 0.25);
+    border-radius: 12px;
+    padding: 14px;
+    display: grid; gap: 8px;
+    font-size: 13px;
+  }
+  .cred-box .cr { display: flex; justify-content: space-between; gap: 10px; }
+  .cred-box .cr span:first-child { color: var(--muted); }
+  .cred-box .cr span:last-child { font-weight: 600; font-family: "Space Grotesk", monospace; word-break: break-all; text-align: right; }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed; z-index: 80; left: 0; right: 0; bottom: 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
+    animation: toastIn 0.2s ease;
+    max-width: 90vw;
+  }
+  .toast.ok { border-color: rgba(87, 242, 135, 0.4); }
+  .toast.err { border-color: rgba(255, 92, 114, 0.45); color: #ff9aa8; }
+  @keyframes toastIn { from { transform: translateY(12px); opacity: 0; } }
+
+  .spinner {
+    width: 15px; height: 15px;
+    border: 2px solid rgba(4, 20, 10, 0.4);
+    border-top-color: var(--accent-ink);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .center-note { text-align: center; padding: 80px 24px; color: var(--muted); }
+  .center-note code { background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 6px; color: var(--accent); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ LOGIN ============ -->
+  <section id="login">
+    <div class="login-card">
+      <img class="login-logo" src="astrim-logo.png" alt="ASTRIM" />
+      <div class="brand-kicker">ASTRIM</div>
+      <h1>Consola de Operador</h1>
+      <p class="sub">Alta y licencias de los gimnasios</p>
+      <form id="login-form">
+        <div>
+          <label for="op-email">Correo</label>
+          <input id="op-email" type="email" autocomplete="username" required placeholder="tu@correo.com" />
+        </div>
+        <div>
+          <label for="op-pass">Contraseña</label>
+          <div class="field-pass">
+            <input id="op-pass" type="password" autocomplete="current-password" required placeholder="••••••••" />
+            <button type="button" id="op-pass-toggle" aria-label="Mostrar contraseña">👁</button>
+          </div>
+        </div>
+        <div id="login-error" class="form-error" hidden></div>
+        <button class="btn btn-primary" type="submit" id="login-btn" style="width:100%">Ingresar</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <section id="app">
+    <header class="topbar">
+      <img src="astrim-logo.png" alt="" />
+      <div class="title">Consola de Operador<span>ASTRIM</span></div>
+      <div class="spacer"></div>
+      <span class="op-email" id="topbar-email"></span>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+    </header>
+
+    <main id="app-main">
+      <div class="page-head">
+        <div>
+          <h2>Gimnasios</h2>
+          <p id="gym-count-line">Cargando…</p>
+        </div>
+        <button class="btn btn-primary" id="new-gym-btn">+ Nuevo gimnasio</button>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Buscar por nombre, dueño o correo…" />
+      </div>
+
+      <div id="gym-list"></div>
+    </main>
+  </section>
+
+  <!-- unauthorized -->
+  <section id="unauth" style="display:none">
+    <div class="center-note">
+      <p style="font-size:16px;color:var(--text);margin-bottom:10px">Esta cuenta no es operador</p>
+      <p>Tu UID de Firebase es:<br><code id="unauth-uid"></code></p>
+      <p style="margin:14px 0">Agregá ese UID a <code>isOperator()</code> en <code>firestore.rules</code> y volvé a desplegar.</p>
+      <button class="btn btn-ghost btn-sm" id="unauth-logout">Salir</button>
+    </div>
+  </section>
+
+</div>
+
+<div id="modal-root"></div>
+<div id="toasts"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy,
+  } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-firestore.js";
+
+  // ---- Config (valores públicos por diseño; la seguridad la dan las rules) ----
+  const firebaseConfig = {
+    apiKey: "AIzaSyCRJ55jGT4HxNwN7Xs4SE-NEHqAL1YA_qU",
+    authDomain: "astrim-gym.firebaseapp.com",
+    projectId: "astrim-gym",
+    storageBucket: "astrim-gym.firebasestorage.app",
+    messagingSenderId: "920110099557",
+    appId: "1:920110099557:web:f9116b8179d4ad74352a8c",
+  };
+  // Debe coincidir con isOperator() en firestore.rules.
+  const OPERATOR_UIDS = ["HWi0KCmtuXXSozNmO6RsyDbWpo62"];
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ---- helpers ----
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, props = {}, ...kids) => {
+    const n = document.createElement(tag);
+    Object.entries(props).forEach(([k, v]) => {
+      if (k === "class") n.className = v;
+      else if (k === "html") n.innerHTML = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v !== null && v !== undefined) n.setAttribute(k, v);
+    });
+    kids.flat().forEach((c) => n.append(c?.nodeType ? c : document.createTextNode(c ?? "")));
+    return n;
+  };
+
+  const todayISO = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
+  function addMonthsISO(iso, months) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const base = new Date(y, m - 1, d);
+    base.setMonth(base.getMonth() + Number(months));
+    return base.toLocaleDateString("en-CA");
+  }
+  function daysUntil(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const target = new Date(y, m - 1, d);
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    return Math.round((target - now) / 86400000);
+  }
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const slugify = (s) =>
+    s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 34) || "gym";
+  const rand = (n) => {
+    const b = crypto.getRandomValues(new Uint8Array(n));
+    return [...b].map((x) => "abcdefghijklmnopqrstuvwxyz0123456789"[x % 36]).join("");
+  };
+  function genPassword() {
+    const parts = ["Astrim", "Power", "Force", "Titan", "Prime", "Elite", "Iron", "Peak"];
+    return parts[Math.floor(Math.random() * parts.length)] + "-" + new Date().getFullYear() + "-" + rand(4);
+  }
+
+  function toast(msg, kind = "ok") {
+    const t = el("div", { class: "toast " + kind }, msg);
+    $("#toasts").append(t);
+    setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .25s"; }, 3200);
+    setTimeout(() => t.remove(), 3600);
+  }
+
+  function effectiveStatus(g) {
+    if (g.licenseStatus === "SUSPENDED") return "SUSPENDED";
+    const t = todayISO();
+    if (!g.licenseExpiresAt || g.licenseExpiresAt < t) return "EXPIRED";
+    if (daysUntil(g.licenseExpiresAt) <= 7) return "EXPIRING";
+    return "ACTIVE";
+  }
+  const STATUS_LABEL = { ACTIVE: "Activa", EXPIRING: "Vence pronto", EXPIRED: "Vencida", SUSPENDED: "Suspendida" };
+
+  function authErrorMessage(code) {
+    const map = {
+      "auth/invalid-credential": "Correo o contraseña incorrectos.",
+      "auth/invalid-email": "El correo no es válido.",
+      "auth/user-disabled": "Esta cuenta está inhabilitada.",
+      "auth/too-many-requests": "Demasiados intentos. Esperá unos minutos.",
+      "auth/network-request-failed": "Sin conexión. Revisá tu internet.",
+    };
+    return map[code] || "No se pudo iniciar sesión.";
+  }
+
+  // ============ AUTH ============
+  const loginForm = $("#login-form");
+  const loginBtn = $("#login-btn");
+  const loginError = $("#login-error");
+
+  $("#op-pass-toggle").addEventListener("click", () => {
+    const i = $("#op-pass");
+    i.type = i.type === "password" ? "text" : "password";
+  });
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginError.hidden = true;
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Verificando…";
+    try {
+      await signInWithEmailAndPassword(auth, $("#op-email").value.trim(), $("#op-pass").value);
+    } catch (err) {
+      loginError.textContent = authErrorMessage(err.code);
+      loginError.hidden = false;
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Ingresar";
+    }
+  });
+
+  $("#logout-btn").addEventListener("click", () => signOut(auth));
+  $("#unauth-logout").addEventListener("click", () => signOut(auth));
+
+  let unsub = null;
+  let unsubCreds = null;
+
+  onAuthStateChanged(auth, (user) => {
+    if (unsub) { unsub(); unsub = null; }
+    if (unsubCreds) { unsubCreds(); unsubCreds = null; }
+    if (!user) {
+      show("login");
+      return;
+    }
+    if (!OPERATOR_UIDS.includes(user.uid)) {
+      $("#unauth-uid").textContent = user.uid;
+      show("unauth");
+      return;
+    }
+    $("#topbar-email").textContent = user.email;
+    show("app");
+    subscribeGyms();
+    subscribeCreds();
+  });
+
+  function show(view) {
+    $("#login").style.display = view === "login" ? "grid" : "none";
+    $("#app").style.display = view === "app" ? "block" : "none";
+    $("#unauth").style.display = view === "unauth" ? "block" : "none";
+  }
+
+  // ============ GYM LIST (realtime) ============
+  let gyms = [];
+
+  function subscribeGyms() {
+    const q = query(collection(db, "gyms"), orderBy("createdAt", "desc"));
+    unsub = onSnapshot(q, (snap) => {
+      gyms = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderStats();
+      renderList();
+    }, (err) => {
+      console.error(err);
+      toast("No se pudo cargar la lista: " + err.message, "err");
+    });
+  }
+
+  // Credenciales en texto (colección aparte, solo la lee el operador).
+  let creds = {}; // gymId -> { password, updatedBy, ownerEmail }
+  const revealed = new Set(); // gymIds con la contraseña visible
+
+  function subscribeCreds() {
+    unsubCreds = onSnapshot(collection(db, "gymCredentials"), (snap) => {
+      creds = {};
+      snap.docs.forEach((d) => { creds[d.id] = d.data(); });
+      renderList();
+    }, (err) => console.warn("gymCredentials:", err.message));
+  }
+
+  $("#search").addEventListener("input", renderList);
+
+  function renderStats() {
+    const by = { ACTIVE: 0, EXPIRING: 0, EXPIRED: 0, SUSPENDED: 0 };
+    gyms.forEach((g) => { by[effectiveStatus(g)]++; });
+    const tiles = [
+      { k: "Gimnasios", v: gyms.length, cls: "" },
+      { k: "Activos", v: by.ACTIVE, cls: "accent" },
+      { k: "Por vencer (7 días)", v: by.EXPIRING, cls: "warn" },
+      { k: "Vencidos / suspendidos", v: by.EXPIRED + by.SUSPENDED, cls: "danger" },
+    ];
+    $("#stats").replaceChildren(
+      ...tiles.map((t) =>
+        el("div", { class: "tile " + t.cls },
+          el("div", { class: "k" }, t.k),
+          el("div", { class: "v" }, String(t.v)),
+        )),
+    );
+    $("#gym-count-line").textContent =
+      gyms.length === 0 ? "Todavía no hay gimnasios" : `${gyms.length} gimnasio${gyms.length === 1 ? "" : "s"} en total`;
+  }
+
+  function renderList() {
+    const term = $("#search").value.trim().toLowerCase();
+    const list = gyms.filter((g) =>
+      !term ||
+      (g.name || "").toLowerCase().includes(term) ||
+      (g.ownerName || "").toLowerCase().includes(term) ||
+      (g.ownerEmail || "").toLowerCase().includes(term));
+
+    const root = $("#gym-list");
+    if (list.length === 0) {
+      root.replaceChildren(el("div", { class: "empty" },
+        gyms.length === 0
+          ? "Creá el primer gimnasio con “+ Nuevo gimnasio”."
+          : "Ningún gimnasio coincide con la búsqueda."));
+      return;
+    }
+
+    root.replaceChildren(el("div", { class: "gym-grid" }, ...list.map(gymCard)));
+  }
+
+  function gymCard(g) {
+    const st = effectiveStatus(g);
+    const days = g.licenseExpiresAt ? daysUntil(g.licenseExpiresAt) : null;
+    const daysTxt = days === null ? "" :
+      days < 0 ? `hace ${Math.abs(days)} d` :
+      days === 0 ? "hoy" : `en ${days} d`;
+
+    const gid = el("span", { class: "gid", title: "Copiar gymId",
+      onclick: () => { navigator.clipboard.writeText(g.id); toast("gymId copiado"); } },
+      "⧉ " + g.id);
+
+    const renewSel = el("select", { style: "max-width:96px" },
+      ...[1, 3, 6, 12].map((m) => el("option", { value: m }, `${m} mes${m === 1 ? "" : "es"}`)));
+
+    const actions = el("div", { class: "gc-actions" },
+      renewSel,
+      el("button", { class: "btn btn-ghost btn-sm",
+        onclick: () => renewLicense(g, Number(renewSel.value)) }, "Renovar"),
+      g.licenseStatus === "SUSPENDED"
+        ? el("button", { class: "btn btn-ghost btn-sm",
+            onclick: () => setSuspended(g, false) }, "Reactivar")
+        : el("button", { class: "btn btn-danger btn-sm",
+            onclick: () => setSuspended(g, true) }, "Suspender"),
+      el("button", { class: "btn btn-ghost btn-sm",
+        onclick: () => copyCreds(g) }, "Copiar acceso"),
+      el("button", { class: "btn btn-ghost btn-sm",
+        title: "Le manda un correo al dueño para que ponga una nueva",
+        onclick: () => sendReset(g) }, "Restablecer"),
+      el("button", { class: "btn btn-danger btn-sm",
+        onclick: () => removeGym(g) }, "Eliminar"),
+    );
+
+    return el("div", { class: "gym-card" },
+      el("div", { class: "gc-top" },
+        el("div", {},
+          el("h3", {}, g.name || "(sin nombre)"),
+          el("div", { class: "owner" }, `${g.ownerName || "—"} · ${g.ownerEmail || "—"}`),
+        ),
+        el("span", { class: "badge " + st }, STATUS_LABEL[st]),
+      ),
+      gid,
+      passwordRow(g),
+      el("div", { class: "license-row" },
+        el("div", {},
+          el("div", { class: "lbl" }, "Licencia vence"),
+          el("div", { class: "val" }, fmtDate(g.licenseExpiresAt), " ", el("small", {}, daysTxt)),
+        ),
+        el("div", { style: "text-align:right" },
+          el("div", { class: "lbl" }, "Plan"),
+          el("div", { class: "val" }, g.licensePlan || "MENSUAL"),
+        ),
+      ),
+      actions,
+    );
+  }
+
+  function passwordRow(g) {
+    const c = creds[g.id];
+    const isRevealed = revealed.has(g.id);
+
+    if (!c || !c.password) {
+      return el("div", { class: "pass-row" },
+        el("div", {},
+          el("div", { class: "lbl" }, "Contraseña"),
+          el("div", { class: "pass-none" }, "no guardada"),
+        ),
+        el("div", { class: "pass-actions" },
+          el("button", { class: "btn btn-ghost btn-sm",
+            onclick: () => saveCredentialPrompt(g) }, "Guardar"),
+        ),
+      );
+    }
+
+    const value = el("span", { class: "pass-val" }, isRevealed ? c.password : "•".repeat(Math.min(c.password.length, 14)));
+
+    return el("div", { class: "pass-row" },
+      el("div", {},
+        el("div", { class: "lbl" },
+          "Contraseña",
+          c.updatedBy === "owner" ? el("span", { class: "pass-tag" }, "la cambió el dueño") : "",
+        ),
+        value,
+      ),
+      el("div", { class: "pass-actions" },
+        el("button", { class: "btn btn-ghost btn-sm", title: isRevealed ? "Ocultar" : "Revelar",
+          onclick: () => { isRevealed ? revealed.delete(g.id) : revealed.add(g.id); renderList(); } },
+          isRevealed ? "Ocultar" : "Revelar"),
+        el("button", { class: "btn btn-ghost btn-sm", title: "Copiar contraseña",
+          onclick: () => { navigator.clipboard.writeText(c.password); toast("Contraseña copiada"); } },
+          "Copiar"),
+      ),
+    );
+  }
+
+  function saveCredentialPrompt(g) {
+    const overlay = el("div", { class: "overlay" });
+    const input = el("input", { type: "text", placeholder: "Contraseña actual del dueño", autocomplete: "off" });
+    const errBox = el("div", { class: "form-error", hidden: "" });
+    const form = el("form", {},
+      el("p", { class: "msub" }, `Guardá la contraseña con la que ${g.ownerName || "el dueño"} entra hoy a ${g.name}. Se muestra solo acá.`),
+      el("div", {}, el("label", {}, "Contraseña"), input),
+      errBox,
+      el("div", { class: "actions" },
+        el("button", { type: "button", class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancelar"),
+        el("button", { type: "submit", class: "btn btn-primary" }, "Guardar"),
+      ),
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pass = input.value;
+      if (pass.length < 6) { errBox.textContent = "Mínimo 6 caracteres."; errBox.hidden = false; return; }
+      try {
+        await setDoc(doc(db, "gymCredentials", g.id), {
+          password: pass, ownerEmail: g.ownerEmail,
+          updatedBy: "operator", updatedAt: serverTimestamp(),
+        });
+        overlay.remove();
+        toast("Contraseña guardada");
+      } catch (err) {
+        errBox.textContent = err.message; errBox.hidden = false;
+      }
+    });
+    overlay.append(el("div", { class: "modal" }, el("h3", {}, "Guardar contraseña"), form));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    $("#modal-root").append(overlay);
+    input.focus();
+  }
+
+  // ============ ACTIONS ============
+  async function renewLicense(g, months) {
+    const expired = effectiveStatus(g) === "EXPIRED" || effectiveStatus(g) === "SUSPENDED";
+    const base = expired ? todayISO() : (g.licenseExpiresAt || todayISO());
+    const newExpiry = addMonthsISO(base, months);
+    try {
+      await setDoc(doc(db, "gyms", g.id), {
+        licenseStatus: "ACTIVE",
+        licenseExpiresAt: newExpiry,
+        licenseStartAt: expired ? todayISO() : (g.licenseStartAt || todayISO()),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      toast(`${g.name}: licencia hasta ${fmtDate(newExpiry)}`);
+    } catch (e) { toast("Error al renovar: " + e.message, "err"); }
+  }
+
+  function sendReset(g) {
+    openModal({
+      title: "Restablecer contraseña",
+      sub: `Le mandamos un correo a ${g.ownerEmail} con un enlace para poner una contraseña nueva. Sirve cuando el dueño la perdió y no la tenés guardada.`,
+      submitLabel: "Enviar correo",
+      onSubmit: async () => {
+        const r = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${firebaseConfig.apiKey}`,
+          { method: "POST", headers: { "Content-Type": "application/json", "X-Firebase-Locale": "es" },
+            body: JSON.stringify({ requestType: "PASSWORD_RESET", email: g.ownerEmail }) },
+        );
+        const b = await r.json();
+        if (!r.ok) throw new Error(b.error?.message || "No se pudo enviar");
+        toast(`Correo enviado a ${g.ownerEmail}`);
+      },
+    });
+  }
+
+  async function setSuspended(g, suspend) {
+    try {
+      await setDoc(doc(db, "gyms", g.id), {
+        licenseStatus: suspend ? "SUSPENDED" : "ACTIVE",
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      toast(suspend ? `${g.name} suspendido` : `${g.name} reactivado`);
+    } catch (e) { toast("Error: " + e.message, "err"); }
+  }
+
+  function copyCreds(g) {
+    const pass = creds[g.id]?.password;
+    const txt =
+      `ASTRIM GYM — acceso al panel\n` +
+      `Gimnasio: ${g.name}\n` +
+      `Correo: ${g.ownerEmail}\n` +
+      `Contraseña: ${pass || "(la que definiste al crearlo)"}\n\n` +
+      `Instalá el panel e iniciá sesión con ese correo y contraseña.`;
+    navigator.clipboard.writeText(txt);
+    toast("Texto de acceso copiado");
+  }
+
+  async function removeGym(g) {
+    openModal({
+      title: "Eliminar gimnasio",
+      sub: `Se borra "${g.name}" de la nube y su vínculo de acceso. La cuenta de correo queda en Authentication (borrala a mano si querés).`,
+      body: (form) => {},
+      submitLabel: "Eliminar definitivamente",
+      danger: true,
+      onSubmit: async () => {
+        await deleteDoc(doc(db, "gyms", g.id));
+        await deleteDoc(doc(db, "gymCredentials", g.id)).catch(() => {});
+        if (g.ownerUid) await deleteDoc(doc(db, "userIndex", g.ownerUid)).catch(() => {});
+        toast(`${g.name} eliminado`);
+      },
+    });
+  }
+
+  // ============ NEW GYM ============
+  $("#new-gym-btn").addEventListener("click", openNewGym);
+
+  function openNewGym() {
+    const overlay = el("div", { class: "overlay" });
+    const passInput = el("input", { type: "text", required: "", value: genPassword() });
+    const form = el("form", {},
+      el("div", {},
+        el("label", {}, "Nombre del gimnasio"),
+        el("input", { name: "gymName", required: "", placeholder: "POWER GYM", autocomplete: "off" }),
+      ),
+      el("div", { class: "row2" },
+        el("div", {},
+          el("label", {}, "Nombre del dueño"),
+          el("input", { name: "ownerName", required: "", placeholder: "Juan", autocomplete: "off" }),
+        ),
+        el("div", {},
+          el("label", {}, "Meses de licencia"),
+          el("select", { name: "months" },
+            ...[1, 3, 6, 12].map((m) => el("option", { value: m, ...(m === 1 ? { selected: "" } : {}) }, `${m} mes${m === 1 ? "" : "es"}`))),
+        ),
+      ),
+      el("div", {},
+        el("label", {}, "Correo del dueño"),
+        el("input", { name: "ownerEmail", type: "email", required: "", placeholder: "juan@gmail.com", autocomplete: "off" }),
+      ),
+      el("div", {},
+        el("label", {}, "Contraseña inicial"),
+        el("div", { class: "gen-pass" },
+          passInput,
+          el("button", { type: "button", class: "btn btn-ghost btn-sm",
+            onclick: () => { passInput.value = genPassword(); } }, "↻"),
+        ),
+      ),
+      el("div", { class: "form-error", hidden: "" }),
+      el("div", { class: "actions" },
+        el("button", { type: "button", class: "btn btn-ghost",
+          onclick: () => overlay.remove() }, "Cancelar"),
+        el("button", { type: "submit", class: "btn btn-primary" }, "Crear gimnasio"),
+      ),
+    );
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errBox = form.querySelector(".form-error");
+      const submitBtn = form.querySelector('button[type=submit]');
+      errBox.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.replaceChildren(el("span", { class: "spinner" }), " Creando…");
+      const fd = new FormData(form);
+      try {
+        const res = await createGym({
+          gymName: fd.get("gymName").trim(),
+          ownerName: fd.get("ownerName").trim(),
+          ownerEmail: fd.get("ownerEmail").trim().toLowerCase(),
+          password: passInput.value,
+          months: Number(fd.get("months")),
+        });
+        overlay.remove();
+        showCredentials(res);
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Crear gimnasio";
+      }
+    });
+
+    overlay.append(el("div", { class: "modal" },
+      el("h3", {}, "Nuevo gimnasio"),
+      el("p", { class: "msub" }, "Crea la cuenta del dueño, su licencia y el vínculo de acceso — todo de una."),
+      form,
+    ));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    $("#modal-root").append(overlay);
+    form.querySelector('input[name=gymName]').focus();
+  }
+
+  async function createGym({ gymName, ownerName, ownerEmail, password, months }) {
+    if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+
+    // 1. Cuenta en Firebase Auth (REST — no cambia la sesión del operador).
+    const r = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: ownerEmail, password, returnSecureToken: false }) },
+    );
+    const body = await r.json();
+    let uid;
+    if (r.ok && body.localId) {
+      uid = body.localId;
+    } else if (body.error?.message === "EMAIL_EXISTS") {
+      throw new Error("Ya existe una cuenta con ese correo. Usá otro, o borrá esa cuenta en Authentication.");
+    } else if ((body.error?.message || "").startsWith("WEAK_PASSWORD")) {
+      throw new Error("La contraseña es muy débil (mínimo 6 caracteres).");
+    } else {
+      throw new Error("No se pudo crear la cuenta: " + (body.error?.message || r.status));
+    }
+
+    // 2. Identificadores
+    const gymId = `gym_${slugify(gymName)}_${rand(6)}`;
+    const start = todayISO();
+    const expires = addMonthsISO(start, months);
+
+    // 3. userIndex del primer ADMIN
+    await setDoc(doc(db, "userIndex", uid), {
+      gymId, role: "ADMIN", email: ownerEmail, createdAt: serverTimestamp(),
+    });
+
+    // 4. Doc del gimnasio + licencia
+    await setDoc(doc(db, "gyms", gymId), {
+      name: gymName,
+      ownerName, ownerEmail, ownerUid: uid,
+      licenseStatus: "ACTIVE",
+      licensePlan: "MENSUAL",
+      licenseStartAt: start,
+      licenseExpiresAt: expires,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdByEmail: auth.currentUser.email,
+    }, { merge: true });
+
+    // 5. Credencial en texto (colección aparte, solo la lee el operador).
+    await setDoc(doc(db, "gymCredentials", gymId), {
+      password, ownerEmail,
+      updatedBy: "operator",
+      updatedAt: serverTimestamp(),
+    });
+
+    return { gymName, ownerEmail, password, gymId, expires };
+  }
+
+  function showCredentials(res) {
+    const overlay = el("div", { class: "overlay" });
+    const box = el("div", { class: "cred-box" },
+      row("Gimnasio", res.gymName),
+      row("Correo", res.ownerEmail),
+      row("Contraseña", res.password),
+      row("Licencia hasta", fmtDate(res.expires)),
+    );
+    function row(k, v) {
+      return el("div", { class: "cr" }, el("span", {}, k), el("span", {}, v));
+    }
+    overlay.append(el("div", { class: "modal" },
+      el("h3", {}, "✅ Gimnasio creado"),
+      el("p", { class: "msub" }, "Pasale esto al dueño. Ya puede instalar el panel e iniciar sesión."),
+      box,
+      el("div", { class: "actions" },
+        el("button", { class: "btn btn-ghost",
+          onclick: () => {
+            navigator.clipboard.writeText(
+              `ASTRIM GYM — acceso al panel\nGimnasio: ${res.gymName}\nCorreo: ${res.ownerEmail}\nContraseña: ${res.password}\n\nInstalá el panel e iniciá sesión con ese correo y contraseña.`);
+            toast("Copiado");
+          } }, "Copiar todo"),
+        el("button", { class: "btn btn-primary", onclick: () => overlay.remove() }, "Listo"),
+      ),
+    ));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    $("#modal-root").append(overlay);
+  }
+
+  // Generic confirm modal
+  function openModal({ title, sub, submitLabel, danger, onSubmit }) {
+    const overlay = el("div", { class: "overlay" });
+    const btn = el("button", { class: "btn " + (danger ? "btn-danger" : "btn-primary") }, submitLabel);
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.replaceChildren(el("span", { class: "spinner" }), " …");
+      try { await onSubmit(); overlay.remove(); }
+      catch (e) { toast("Error: " + e.message, "err"); btn.disabled = false; btn.textContent = submitLabel; }
+    });
+    overlay.append(el("div", { class: "modal" },
+      el("h3", {}, title),
+      el("p", { class: "msub" }, sub),
+      el("div", { class: "actions" },
+        el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancelar"),
+        btn,
+      ),
+    ));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    $("#modal-root").append(overlay);
+  }
+</script>
+</body>
+</html>

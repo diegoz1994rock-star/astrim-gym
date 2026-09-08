@@ -58,6 +58,9 @@ export interface ClientListItem {
   observations: string | null;
   status: ClientStatus;
   attendanceCode: string | null;
+  faceConsent: boolean;
+  faceEnrolledAt: string | null;
+  cloudUid: string | null;
   membershipId: string | null;
   membershipPlanName: string | null;
   membershipStartDate: string | null;

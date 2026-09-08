@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Eye, Plus, Search } from "lucide-react";
+import { ClipboardList, Eye, Pencil, Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import * as clientService from "@/lib/services/clientService";
 import * as routineService from "@/lib/services/routineService";
 import { filterRoutines } from "@/lib/domain/routineFilters";
-import { formatDate } from "@/lib/format";
 import {
   DEFAULT_ROUTINE_FILTERS,
   ROUTINE_STATUS_LABELS,
@@ -18,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { RoutineStatusBadge } from "@/components/StatusBadges";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { RoutineFormModal } from "./RoutineFormModal";
+import { AssignRoutineModal } from "./AssignRoutineModal";
 
 export function RoutinesPage() {
   const { user } = useAuth();
@@ -31,6 +32,10 @@ export function RoutinesPage() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<RoutineFilters>(DEFAULT_ROUTINE_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState<RoutineListItem | null>(null);
+  const [assignTarget, setAssignTarget] = useState<RoutineListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RoutineListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!gymId) return;
@@ -56,6 +61,30 @@ export function RoutinesPage() {
 
   const filteredRoutines = useMemo(() => filterRoutines(routines, filters), [routines, filters]);
 
+  function openCreateForm() {
+    setEditingRoutine(null);
+    setFormOpen(true);
+  }
+
+  function openEditForm(routine: RoutineListItem) {
+    setEditingRoutine(routine);
+    setFormOpen(true);
+  }
+
+  async function confirmDeleteRoutine() {
+    if (!gymId || !deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await routineService.deleteRoutine(gymId, deleteTarget.id);
+      setDeleteTarget(null);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar la rutina.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!gymId) {
     return <div className="text-sm text-muted-foreground">No hay un gimnasio asociado a este usuario.</div>;
   }
@@ -66,10 +95,10 @@ export function RoutinesPage() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-foreground">Rutinas</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Administra los planes de entrenamiento de los clientes de tu gimnasio.
+            Crea plantillas de rutina y asígnalas a los clientes que quieras.
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           Nueva rutina
         </Button>
@@ -81,13 +110,13 @@ export function RoutinesPage() {
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-10"
-              placeholder="Buscar por cliente o nombre de rutina..."
+              placeholder="Buscar por nombre de rutina..."
               value={filters.search}
               onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:w-[520px] lg:shrink-0">
+          <div className="lg:w-56 lg:shrink-0">
             <Select
               value={filters.status}
               onChange={(e) =>
@@ -101,18 +130,6 @@ export function RoutinesPage() {
                 </option>
               ))}
             </Select>
-            <Input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
-              title="Desde"
-            />
-            <Input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
-              title="Hasta"
-            />
           </div>
         </div>
       </Card>
@@ -147,12 +164,10 @@ export function RoutinesPage() {
             <table className="w-full min-w-[880px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-6 py-3 font-medium">Cliente</th>
-                  <th className="px-3 py-3 font-medium">Rutina</th>
+                  <th className="px-6 py-3 font-medium">Rutina</th>
                   <th className="px-3 py-3 font-medium">Objetivo</th>
-                  <th className="px-3 py-3 font-medium">Inicio</th>
-                  <th className="px-3 py-3 font-medium">Final</th>
                   <th className="px-3 py-3 font-medium">Ejercicios</th>
+                  <th className="px-3 py-3 font-medium">Clientes asignados</th>
                   <th className="px-3 py-3 font-medium">Estado</th>
                   <th className="px-6 py-3 text-right font-medium">Acciones</th>
                 </tr>
@@ -163,12 +178,16 @@ export function RoutinesPage() {
                     key={routine.id}
                     className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
                   >
-                    <td className="px-6 py-3 font-medium text-foreground">{routine.clientName}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{routine.name}</td>
+                    <td className="px-6 py-3 font-medium text-foreground">{routine.name}</td>
                     <td className="px-3 py-3 text-muted-foreground">{routine.description ?? "—"}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{formatDate(routine.startDate)}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{formatDate(routine.endDate)}</td>
                     <td className="px-3 py-3 text-muted-foreground">{routine.exerciseCount}</td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {routine.assignmentCount === 0 ? (
+                        <span className="italic">Sin asignar</span>
+                      ) : (
+                        `${routine.assignmentCount} cliente${routine.assignmentCount === 1 ? "" : "s"}`
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <RoutineStatusBadge status={routine.status} />
                     </td>
@@ -181,6 +200,30 @@ export function RoutinesPage() {
                           className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Asignar clientes"
+                          onClick={() => setAssignTarget(routine)}
+                          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Editar rutina"
+                          onClick={() => openEditForm(routine)}
+                          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Eliminar"
+                          onClick={() => setDeleteTarget(routine)}
+                          className="rounded-lg p-2 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -195,13 +238,31 @@ export function RoutinesPage() {
       <RoutineFormModal
         open={formOpen}
         gymId={gymId}
-        routine={null}
-        clients={clients}
+        routine={editingRoutine}
         onClose={() => setFormOpen(false)}
         onSaved={(routineId) => {
           loadData();
-          navigate(`/rutinas/${routineId}`);
+          if (!editingRoutine) navigate(`/rutinas/${routineId}`);
         }}
+      />
+
+      <AssignRoutineModal
+        open={assignTarget !== null}
+        gymId={gymId}
+        routine={assignTarget}
+        clients={clients}
+        onClose={() => setAssignTarget(null)}
+        onSaved={loadData}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar rutina"
+        description={`¿Deseas eliminar la rutina "${deleteTarget?.name}"? Se borrará junto con sus ejercicios y dejará de estar asignada a ${deleteTarget?.assignmentCount ?? 0} cliente(s). No se puede deshacer.`}
+        confirmLabel={deleting ? "Eliminando…" : "Eliminar"}
+        danger
+        onConfirm={confirmDeleteRoutine}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

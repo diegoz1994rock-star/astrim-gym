@@ -2,15 +2,15 @@ import type { LucideIcon } from "lucide-react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 
 type StatTone = "primary" | "success" | "warning" | "danger";
 
 const TONE_STYLES: Record<StatTone, string> = {
-  primary: "bg-primary/10 text-primary",
-  success: "bg-success/10 text-success",
-  warning: "bg-warning/10 text-warning",
-  danger: "bg-danger/10 text-danger",
+  primary: "bg-primary-soft text-primary-soft-foreground",
+  success: "bg-success-soft text-success",
+  warning: "bg-warning-soft text-warning",
+  danger: "bg-danger-soft text-danger",
 };
 
 export interface StatTrend {
@@ -45,14 +45,15 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay }}
+      transition={{ duration: 0.3, delay }}
     >
       <Card
         className={cn(
-          "transition-shadow hover:shadow-md",
-          onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30",
+          "p-5 transition-[box-shadow,border-color,transform] duration-150",
+          onClick &&
+            "cursor-pointer hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md",
         )}
         onClick={onClick}
         role={onClick ? "button" : undefined}
@@ -68,42 +69,47 @@ export function StatCard({
             : undefined
         }
       >
-        <CardContent className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{value}</p>
-            {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-            {trend && (
-              <p
-                className={cn(
-                  "mt-1 flex items-center gap-1 text-xs font-medium",
-                  trend.value === null
-                    ? "text-muted-foreground"
-                    : trend.value >= 0
-                      ? "text-success"
-                      : "text-danger",
-                )}
-              >
-                {trend.value === null ? (
-                  "Sin comparación disponible"
-                ) : (
-                  <>
-                    {trend.value >= 0 ? (
-                      <ArrowUp className="h-3 w-3" />
-                    ) : (
-                      <ArrowDown className="h-3 w-3" />
-                    )}
-                    {trend.value >= 0 ? "+" : ""}
-                    {trend.value.toFixed(1)}%{trend.label ? ` ${trend.label}` : ""}
-                  </>
-                )}
-              </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+              TONE_STYLES[tone],
             )}
+          >
+            <Icon className="h-[18px] w-[18px]" />
           </div>
-          <div className={cn("flex h-11 w-11 items-center justify-center rounded-lg", TONE_STYLES[tone])}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </CardContent>
+        </div>
+        <p className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-foreground">
+          {value}
+        </p>
+        {hint && <p className="mt-2 text-xs text-muted-foreground">{hint}</p>}
+        {trend && (
+          <p
+            className={cn(
+              "mt-2 flex items-center gap-1 text-xs font-medium",
+              trend.value === null
+                ? "text-subtle"
+                : trend.value >= 0
+                  ? "text-success"
+                  : "text-danger",
+            )}
+          >
+            {trend.value === null ? (
+              "Sin comparación disponible"
+            ) : (
+              <>
+                {trend.value >= 0 ? (
+                  <ArrowUp className="h-3 w-3" />
+                ) : (
+                  <ArrowDown className="h-3 w-3" />
+                )}
+                {trend.value >= 0 ? "+" : ""}
+                {trend.value.toFixed(1)}%{trend.label ? ` ${trend.label}` : ""}
+              </>
+            )}
+          </p>
+        )}
       </Card>
     </motion.div>
   );

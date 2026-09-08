@@ -74,6 +74,18 @@ export async function setDeviceStatus(
   ]);
 }
 
+/**
+ * device_pairing_codes.device_id referencia a devices(id) con foreign key
+ * (sin ON DELETE CASCADE): hay que borrar primero los códigos de
+ * vinculación del dispositivo o SQLite rechaza el DELETE por completo con
+ * "FOREIGN KEY constraint failed", sin ningún aviso visible en la UI.
+ */
+export async function deleteDevice(gymId: string, deviceId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(`DELETE FROM device_pairing_codes WHERE device_id = $1`, [deviceId]);
+  await db.execute(`DELETE FROM devices WHERE id = $1 AND gym_id = $2`, [deviceId, gymId]);
+}
+
 export async function touchDeviceSeen(deviceId: string): Promise<void> {
   const db = await getDb();
   await db.execute(`UPDATE devices SET last_seen_at = datetime('now') WHERE id = $1`, [deviceId]);

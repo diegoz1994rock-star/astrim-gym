@@ -12,13 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/Avatar";
 import { DevicesTab } from "./DevicesTab";
+import { CloudTab } from "./CloudTab";
+import { ChangePasswordCard } from "./ChangePasswordCard";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-1 text-xs text-danger">{message}</p>;
 }
 
-type SettingsTab = "general" | "devices";
+type SettingsTab = "general" | "devices" | "cloud";
 
 export function SettingsPage() {
   const { user, refreshGymName, refreshGymLogo } = useAuth();
@@ -147,9 +149,19 @@ export function SettingsPage() {
         >
           Dispositivos
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("cloud")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            tab === "cloud" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+          }`}
+        >
+          Nube
+        </button>
       </div>
 
       {tab === "devices" && gymId && <DevicesTab gymId={gymId} />}
+      {tab === "cloud" && gymId && <CloudTab gymId={gymId} />}
 
       {tab === "general" && loading && (
         <Card>
@@ -166,6 +178,7 @@ export function SettingsPage() {
       )}
 
       {tab === "general" && !loading && !error && form && (
+        <>
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <Card>
             <CardHeader>
@@ -250,6 +263,9 @@ export function SettingsPage() {
             </Button>
           </div>
         </form>
+
+        <ChangePasswordCard />
+        </>
       )}
     </div>
   );

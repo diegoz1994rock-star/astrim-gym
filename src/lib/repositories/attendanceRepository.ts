@@ -115,9 +115,9 @@ export async function getStats(gymId: string): Promise<AttendanceStatsRow> {
   const db = await getDb();
   const rows = await db.select<AttendanceStatsRow[]>(
     `SELECT
-       SUM(CASE WHEN date = date('now') THEN 1 ELSE 0 END) AS today,
-       SUM(CASE WHEN date = date('now') AND check_in IS NOT NULL AND check_out IS NULL THEN 1 ELSE 0 END) AS inside_now,
-       SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now') THEN 1 ELSE 0 END) AS this_month
+       COALESCE(SUM(CASE WHEN date = date('now') THEN 1 ELSE 0 END), 0) AS today,
+       COALESCE(SUM(CASE WHEN date = date('now') AND check_in IS NOT NULL AND check_out IS NULL THEN 1 ELSE 0 END), 0) AS inside_now,
+       COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now') THEN 1 ELSE 0 END), 0) AS this_month
      FROM attendance WHERE gym_id = $1`,
     [gymId],
   );

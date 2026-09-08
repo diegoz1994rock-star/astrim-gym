@@ -3,27 +3,45 @@ import * as clientRepository from "../repositories/clientRepository";
 import * as exerciseRepository from "../repositories/exerciseRepository";
 import {
   validateRoutineForm,
+  validateAssignRoutineForm,
   validateRoutineExerciseForm,
   hasValidationErrors,
 } from "../domain/routineValidation";
 import type {
+  AssignRoutineValidationErrors,
   RoutineExerciseValidationErrors,
   RoutineValidationErrors,
 } from "../domain/routineValidation";
 import { getCardioEquipmentProfile, getExerciseConfigurationMode } from "../domain/exerciseConfigMode";
 import type {
+  AssignRoutineFormInput,
+  ClientRoutineListItem,
+  RoutineAssignmentListItem,
   RoutineExerciseFormInput,
   RoutineExerciseListItem,
   RoutineFormInput,
   RoutineListItem,
   TimeUnit,
 } from "@/types/routine";
-import type { ExerciseOptionRow, RoutineExerciseRow, RoutineRow, RoutineStatus } from "@/types/db";
+import type {
+  ClientRoutineRow,
+  ExerciseOptionRow,
+  RoutineAssignmentRow,
+  RoutineExerciseRow,
+  RoutineRow,
+  RoutineStatus,
+} from "@/types/db";
 import type { RoutineExercisePersistedFields } from "../repositories/routineRepository";
 
 export class RoutineValidationError extends Error {
   constructor(public errors: RoutineValidationErrors) {
     super("Los datos de la rutina no son válidos.");
+  }
+}
+
+export class AssignRoutineValidationError extends Error {
+  constructor(public errors: AssignRoutineValidationErrors) {
+    super("Los datos de asignación no son válidos.");
   }
 }
 
@@ -54,18 +72,40 @@ export class RoutineNotFoundError extends Error {
 function mapRowToListItem(row: RoutineRow): RoutineListItem {
   return {
     id: row.id,
-    clientId: row.client_id,
-    clientName: row.client_name,
-    clientDocument: row.client_document,
     name: row.name,
     description: row.description,
-    startDate: row.start_date,
-    endDate: row.end_date,
     status: row.status,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     exerciseCount: row.exercise_count,
+    assignmentCount: row.assignment_count,
+  };
+}
+
+function mapClientRoutineRowToListItem(row: ClientRoutineRow): ClientRoutineListItem {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    status: row.status,
+    notes: row.notes,
+    exerciseCount: row.exercise_count,
+    startDate: row.start_date,
+    endDate: row.end_date,
+  };
+}
+
+function mapAssignmentRowToListItem(row: RoutineAssignmentRow): RoutineAssignmentListItem {
+  return {
+    id: row.id,
+    routineId: row.routine_id,
+    clientId: row.client_id,
+    clientName: row.client_name,
+    clientDocument: row.client_document,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    createdAt: row.created_at,
   };
 }
 
@@ -110,9 +150,9 @@ export async function getRoutines(gymId: string): Promise<RoutineListItem[]> {
   return rows.map(mapRowToListItem);
 }
 
-export async function getRoutinesByClient(gymId: string, clientId: string): Promise<RoutineListItem[]> {
+export async function getRoutinesByClient(gymId: string, clientId: string): Promise<ClientRoutineListItem[]> {
   const rows = await routineRepository.listRoutinesByClient(gymId, clientId);
-  return rows.map(mapRowToListItem);
+  return rows.map(mapClientRoutineRowToListItem);
 }
 
 export async function getRoutineById(gymId: string, id: string): Promise<RoutineListItem | null> {
@@ -124,15 +164,10 @@ export async function createRoutine(gymId: string, input: RoutineFormInput): Pro
   const errors = validateRoutineForm(input);
   if (hasValidationErrors(errors)) throw new RoutineValidationError(errors);
 
-  await assertClientBelongsToGym(gymId, input.clientId);
-
   const id = crypto.randomUUID();
   await routineRepository.createRoutine(gymId, id, {
-    clientId: input.clientId,
     name: input.name.trim(),
     description: input.description.trim() || null,
-    startDate: input.startDate,
-    endDate: input.endDate,
     status: input.status,
     notes: input.notes.trim() || null,
   });
@@ -156,17 +191,64 @@ export async function updateRoutine(
   });
   if (hasValidationErrors(errors)) throw new RoutineValidationError(errors);
 
-  await assertClientBelongsToGym(gymId, input.clientId);
-
-  await routineRepository.updateRoutine(gymId, id, {
-    clientId: input.clientId,
+  await routineRepository.updateRoutineDetails(gymId, id, {
     name: input.name.trim(),
     description: input.description.trim() || null,
-    startDate: input.startDate,
-    endDate: input.endDate,
     status: input.status,
     notes: input.notes.trim() || null,
   });
+}
+
+export async function getRoutineAssignments(
+  gymId: string,
+  routineId: string,
+): Promise<RoutineAssignmentListItem[]> {
+  const routine = await routineRepository.findRoutineById(gymId, routineId);
+  if (!routine) throw new RoutineNotFoundError();
+
+  const rows = await routineRepository.listAssignmentsByRoutine(routineId);
+  return rows.map(mapAssignmentRowToListItem);
+}
+
+/**
+ * Asigna una rutina ya creada a uno o varios clientes a la vez, todos con
+ * la misma vigencia. Es un alta en lote: no reemplaza asignaciones ya
+ * existentes, así que se puede llamar varias veces para ir sumando
+ * clientes sin re-crear la rutina ni sus ejercicios.
+ */
+export async function assignRoutineClients(
+  gymId: string,
+  id: string,
+  input: AssignRoutineFormInput,
+): Promise<void> {
+  const current = await routineRepository.findRoutineById(gymId, id);
+  if (!current) throw new RoutineNotFoundError();
+
+  const errors = validateAssignRoutineForm(input);
+  if (hasValidationErrors(errors)) throw new AssignRoutineValidationError(errors);
+
+  for (const clientId of input.clientIds) {
+    await assertClientBelongsToGym(gymId, clientId);
+  }
+
+  for (const clientId of input.clientIds) {
+    await routineRepository.upsertRoutineAssignment(gymId, id, {
+      clientId,
+      startDate: input.startDate,
+      endDate: input.endDate,
+    });
+  }
+}
+
+export async function removeRoutineAssignment(
+  gymId: string,
+  routineId: string,
+  assignmentId: string,
+): Promise<void> {
+  const routine = await routineRepository.findRoutineById(gymId, routineId);
+  if (!routine) throw new RoutineNotFoundError();
+
+  await routineRepository.removeRoutineAssignment(routineId, assignmentId);
 }
 
 export async function setRoutineStatus(
@@ -175,6 +257,13 @@ export async function setRoutineStatus(
   status: RoutineStatus,
 ): Promise<void> {
   await routineRepository.setRoutineStatus(gymId, id, status);
+}
+
+export async function deleteRoutine(gymId: string, id: string): Promise<void> {
+  const routine = await routineRepository.findRoutineById(gymId, id);
+  if (!routine) throw new RoutineNotFoundError();
+
+  await routineRepository.deleteRoutine(gymId, id);
 }
 
 // ---- Ejercicios de la rutina ----

@@ -1,0 +1,48 @@
+name: Build macOS app
+
+# Se dispara solo (push a main) o a mano desde la pestaña "Actions" de GitHub
+# ("Run workflow", sin tocar ninguna terminal). Produce un .dmg universal
+# (Intel + Apple Silicon en el mismo instalador) como artefacto descargable.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar app de escritorio (.dmg universal)
+        run: npm run tauri build -- --target universal-apple-darwin
+        env:
+          # Config pública del SDK web de Firebase (astrim-gym) — no son
+          # secretos: la seguridad la dan las Firestore Security Rules, ver
+          # docs/FIREBASE.md. Se inyectan acá para que el build en CI tenga
+          # los mismos valores que .env.local en desarrollo local.
+          VITE_FIREBASE_API_KEY: AIzaSyCRJ55jGT4HxNwN7Xs4SE-NEHqAL1YA_qU
+          VITE_FIREBASE_AUTH_DOMAIN: astrim-gym.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: astrim-gym
+          VITE_FIREBASE_STORAGE_BUCKET: astrim-gym.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "920110099557"
+          VITE_FIREBASE_APP_ID: "1:920110099557:web:f9116b8179d4ad74352a8c"
+
+      - name: Subir el .dmg como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASTRIM-GYM-mac
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error

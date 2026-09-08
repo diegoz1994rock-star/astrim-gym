@@ -1,14 +1,13 @@
 import { getDb } from "../db/client";
-import type { RoutineExerciseRow, RoutineRow, RoutineStatus } from "@/types/db";
+import type { ClientRoutineRow, RoutineAssignmentRow, RoutineExerciseRow, RoutineRow, RoutineStatus } from "@/types/db";
 
 const ROUTINE_SELECT = `
   SELECT
-    r.id, r.gym_id, r.client_id, c.name AS client_name, c.document AS client_document,
-    r.name, r.description, r.start_date, r.end_date, r.status, r.notes,
+    r.id, r.gym_id, r.name, r.description, r.status, r.notes,
     r.created_at, r.updated_at,
-    (SELECT COUNT(*) FROM routine_exercises re WHERE re.routine_id = r.id) AS exercise_count
+    (SELECT COUNT(*) FROM routine_exercises re WHERE re.routine_id = r.id) AS exercise_count,
+    (SELECT COUNT(*) FROM routine_assignments ra WHERE ra.routine_id = r.id) AS assignment_count
   FROM routines r
-  JOIN clients c ON c.id = r.client_id
 `;
 
 export async function listRoutines(gymId: string): Promise<RoutineRow[]> {
@@ -19,11 +18,18 @@ export async function listRoutines(gymId: string): Promise<RoutineRow[]> {
   );
 }
 
-export async function listRoutinesByClient(gymId: string, clientId: string): Promise<RoutineRow[]> {
+/** Rutinas asignadas a un cliente, cada una con la vigencia de SU asignación. */
+export async function listRoutinesByClient(gymId: string, clientId: string): Promise<ClientRoutineRow[]> {
   const db = await getDb();
-  return db.select<RoutineRow[]>(
-    `${ROUTINE_SELECT} WHERE r.gym_id = $1 AND r.client_id = $2 ORDER BY r.created_at DESC`,
-    [gymId, clientId],
+  return db.select<ClientRoutineRow[]>(
+    `SELECT r.id, r.name, r.description, r.status, r.notes,
+       (SELECT COUNT(*) FROM routine_exercises re WHERE re.routine_id = r.id) AS exercise_count,
+       ra.start_date, ra.end_date
+     FROM routine_assignments ra
+     JOIN routines r ON r.id = ra.routine_id
+     WHERE ra.client_id = $1 AND r.gym_id = $2
+     ORDER BY ra.created_at DESC`,
+    [clientId, gymId],
   );
 }
 
@@ -37,15 +43,17 @@ export async function findRoutineById(gymId: string, id: string): Promise<Routin
 }
 
 export interface CreateRoutineInput {
-  clientId: string;
   name: string;
   description: string | null;
-  startDate: string | null;
-  endDate: string | null;
   status: RoutineStatus;
   notes: string | null;
 }
 
+/**
+ * La rutina nace sin cliente ni vigencia: es una plantilla reutilizable.
+ * Se asigna a clientes por separado (posiblemente a varios a la vez), ver
+ * upsertRoutineAssignment.
+ */
 export async function createRoutine(
   gymId: string,
   id: string,
@@ -53,23 +61,12 @@ export async function createRoutine(
 ): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT INTO routines (id, gym_id, client_id, name, description, start_date, end_date, status, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [
-      id,
-      gymId,
-      input.clientId,
-      input.name,
-      input.description,
-      input.startDate,
-      input.endDate,
-      input.status,
-      input.notes,
-    ],
+    `INSERT INTO routines (id, gym_id, name, description, status, notes) VALUES ($1,$2,$3,$4,$5,$6)`,
+    [id, gymId, input.name, input.description, input.status, input.notes],
   );
 }
 
-export async function updateRoutine(
+export async function updateRoutineDetails(
   gymId: string,
   id: string,
   input: CreateRoutineInput,
@@ -77,21 +74,24 @@ export async function updateRoutine(
   const db = await getDb();
   await db.execute(
     `UPDATE routines SET
-       client_id = $1, name = $2, description = $3, start_date = $4, end_date = $5,
-       status = $6, notes = $7, updated_at = datetime('now')
-     WHERE id = $8 AND gym_id = $9`,
-    [
-      input.clientId,
-      input.name,
-      input.description,
-      input.startDate,
-      input.endDate,
-      input.status,
-      input.notes,
-      id,
-      gymId,
-    ],
+       name = $1, description = $2, status = $3, notes = $4, updated_at = datetime('now')
+     WHERE id = $5 AND gym_id = $6`,
+    [input.name, input.description, input.status, input.notes, id, gymId],
   );
+}
+
+/**
+ * Borra la rutina y todo lo que solo tiene sentido junto a ella: sus
+ * ejercicios y sus asignaciones a clientes. No toca a los clientes en sí.
+ */
+export async function deleteRoutine(gymId: string, id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `DELETE FROM routine_exercises WHERE routine_id = $1`,
+    [id],
+  );
+  await db.execute(`DELETE FROM routine_assignments WHERE routine_id = $1 AND gym_id = $2`, [id, gymId]);
+  await db.execute(`DELETE FROM routines WHERE id = $1 AND gym_id = $2`, [id, gymId]);
 }
 
 export async function setRoutineStatus(
@@ -104,6 +104,50 @@ export async function setRoutineStatus(
     `UPDATE routines SET status = $1, updated_at = datetime('now') WHERE id = $2 AND gym_id = $3`,
     [status, id, gymId],
   );
+}
+
+// ---- Asignaciones (cliente + vigencia) ----
+
+const ROUTINE_ASSIGNMENT_SELECT = `
+  SELECT ra.id, ra.routine_id, ra.client_id, c.name AS client_name, c.document AS client_document,
+         ra.start_date, ra.end_date, ra.created_at
+  FROM routine_assignments ra
+  JOIN clients c ON c.id = ra.client_id
+`;
+
+export async function listAssignmentsByRoutine(routineId: string): Promise<RoutineAssignmentRow[]> {
+  const db = await getDb();
+  return db.select<RoutineAssignmentRow[]>(
+    `${ROUTINE_ASSIGNMENT_SELECT} WHERE ra.routine_id = $1 ORDER BY c.name COLLATE NOCASE ASC`,
+    [routineId],
+  );
+}
+
+export interface AssignRoutineInput {
+  clientId: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+/**
+ * Alta o renovación de UNA asignación cliente-rutina. idx_routine_assignments_unique
+ * (routine_id, client_id) hace que reasignar al mismo cliente solo actualice
+ * sus fechas en vez de duplicar la fila.
+ */
+export async function upsertRoutineAssignment(gymId: string, routineId: string, input: AssignRoutineInput): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO routine_assignments (id, gym_id, routine_id, client_id, start_date, end_date)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (routine_id, client_id) DO UPDATE SET
+       start_date = excluded.start_date, end_date = excluded.end_date, updated_at = datetime('now')`,
+    [crypto.randomUUID(), gymId, routineId, input.clientId, input.startDate, input.endDate],
+  );
+}
+
+export async function removeRoutineAssignment(routineId: string, assignmentId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(`DELETE FROM routine_assignments WHERE id = $1 AND routine_id = $2`, [assignmentId, routineId]);
 }
 
 // ---- Ejercicios de la rutina ----
@@ -152,6 +196,20 @@ export interface AddRoutineExerciseInput extends RoutineExercisePersistedFields 
   sortOrder: number;
 }
 
+/**
+ * Marca como modificadas las asignaciones de una rutina para que se
+ * re-sincronicen. El conteo de ejercicios (`exerciseCount`) va denormalizado
+ * en el doc de la asignación y solo se recalcula cuando esa fila cambia;
+ * agregar/quitar un ejercicio no la toca, así que hay que "tocarla" a mano.
+ */
+async function touchRoutineAssignments(routineId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE routine_assignments SET updated_at = datetime('now') WHERE routine_id = $1`,
+    [routineId],
+  );
+}
+
 export async function addRoutineExercise(id: string, input: AddRoutineExerciseInput): Promise<void> {
   const db = await getDb();
   await db.execute(
@@ -179,6 +237,7 @@ export async function addRoutineExercise(id: string, input: AddRoutineExerciseIn
       input.sortOrder,
     ],
   );
+  await touchRoutineAssignments(input.routineId);
 }
 
 export async function updateRoutineExercise(
@@ -219,6 +278,7 @@ export async function removeRoutineExercise(routineId: string, id: string): Prom
     id,
     routineId,
   ]);
+  await touchRoutineAssignments(routineId);
 }
 
 export async function getNextSortOrder(routineId: string): Promise<number> {

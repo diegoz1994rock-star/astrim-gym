@@ -25,6 +25,12 @@ export class AttendanceCodeGenerationError extends Error {
   }
 }
 
+export class FaceConsentRequiredError extends Error {
+  constructor() {
+    super("El cliente debe autorizar el reconocimiento facial antes de registrarlo.");
+  }
+}
+
 function mapRowToListItem(row: ClientRow): ClientListItem {
   return {
     id: row.id,
@@ -54,6 +60,9 @@ function mapRowToListItem(row: ClientRow): ClientListItem {
     observations: row.observations,
     status: row.status,
     attendanceCode: row.attendance_code,
+    faceConsent: row.face_consent === 1,
+    faceEnrolledAt: row.face_enrolled_at,
+    cloudUid: row.cloud_uid,
     membershipId: row.membership_id,
     membershipPlanName: row.membership_plan_name,
     membershipStartDate: row.membership_start_date,
@@ -147,6 +156,10 @@ export async function setClientStatus(
   await clientRepository.setClientStatus(gymId, id, status);
 }
 
+export async function deleteClient(gymId: string, id: string): Promise<void> {
+  await clientRepository.deleteClient(gymId, id);
+}
+
 const ATTENDANCE_CODE_MAX_ATTEMPTS = 10;
 
 /**
@@ -185,4 +198,45 @@ export async function generateClientAttendanceCode(gymId: string, clientId: stri
   const code = await generateUniqueAttendanceCode(gymId, clientId);
   await clientRepository.setClientAttendanceCode(gymId, clientId, code);
   return code;
+}
+
+/**
+ * Guarda (o reemplaza) el rostro enrolado de un cliente ya existente. Exige
+ * consentimiento explícito: nunca se registra un rostro sin autorización,
+ * aunque la UI ya deshabilite el botón antes de llegar aquí.
+ */
+export async function enrollClientFace(
+  gymId: string,
+  clientId: string,
+  embedding: number[],
+  consent: boolean,
+): Promise<void> {
+  const client = await clientRepository.findClientById(gymId, clientId);
+  if (!client) throw new ClientNotFoundError();
+  if (!consent) throw new FaceConsentRequiredError();
+
+  await clientRepository.setClientFaceProfile(gymId, clientId, {
+    embedding: JSON.stringify(embedding),
+    consent: true,
+    enrolledAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Elimina únicamente el registro biométrico del cliente (nunca al cliente
+ * en sí). El código de 6 dígitos sigue funcionando igual después de esto.
+ */
+export async function removeClientFace(gymId: string, clientId: string): Promise<void> {
+  const client = await clientRepository.findClientById(gymId, clientId);
+  if (!client) throw new ClientNotFoundError();
+
+  await clientRepository.setClientFaceProfile(gymId, clientId, {
+    embedding: null,
+    consent: false,
+    enrolledAt: null,
+  });
+}
+
+export async function getClientsWithFaceEmbeddings(gymId: string) {
+  return clientRepository.listClientsWithFaceEmbeddings(gymId);
 }
