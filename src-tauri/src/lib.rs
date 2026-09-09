@@ -238,6 +238,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0039_drop_unused_seed_foods.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 40,
+            description: "drop_library_sync_triggers",
+            sql: include_str!("../migrations/0040_drop_library_sync_triggers.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
