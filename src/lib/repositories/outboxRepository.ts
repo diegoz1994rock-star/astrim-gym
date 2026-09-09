@@ -151,8 +151,12 @@ export async function backfillAll(): Promise<void> {
      SELECT ${uid}, 'memberships', id, gym_id, 'UPSERT', json_object('gymId', gym_id, 'clientId', client_id) FROM memberships WHERE 1=1 ${onConflict}`,
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
      SELECT ${uid}, 'exercises', id, gym_id, 'UPSERT', json_object('gymId', gym_id) FROM exercises WHERE gym_id IS NOT NULL ${onConflict}`,
-    `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
-     SELECT ${uid}, 'exercise_library', id, NULL, 'UPSERT', json_object() FROM exercises WHERE gym_id IS NULL ${onConflict}`,
+    // exercise_library / food_library (catálogo global, gym_id IS NULL) NO se
+    // suben en el backfill: son colecciones compartidas y cada instalación
+    // siembra su propia copia con ids distintos (0008/0032), así que
+    // re-subirlas duplica el catálogo en Firestore. La biblioteca global se
+    // siembra una sola vez (botón "Subir biblioteca de ejercicios" /
+    // seedExerciseLibrary). Ver también el distinctBy en la app de clientes.
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
      SELECT ${uid}, 'class_types', id, gym_id, 'UPSERT', json_object('gymId', gym_id) FROM class_types WHERE gym_id IS NOT NULL ${onConflict}`,
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
@@ -180,8 +184,7 @@ export async function backfillAll(): Promise<void> {
      SELECT ${uid}, 'measurements', id, gym_id, 'UPSERT', json_object('gymId', gym_id, 'clientId', client_id) FROM measurements WHERE 1=1 ${onConflict}`,
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
      SELECT ${uid}, 'foods', id, gym_id, 'UPSERT', json_object('gymId', gym_id) FROM foods WHERE gym_id IS NOT NULL ${onConflict}`,
-    `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
-     SELECT ${uid}, 'food_library', id, NULL, 'UPSERT', json_object() FROM foods WHERE gym_id IS NULL ${onConflict}`,
+    // food_library: ver nota arriba (no se sube en el backfill).
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
      SELECT ${uid}, 'meal_plans', id, gym_id, 'UPSERT', json_object('gymId', gym_id) FROM meal_plans WHERE 1=1 ${onConflict}`,
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)

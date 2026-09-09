@@ -166,7 +166,11 @@ class MealPlanRepository(
     private suspend fun loadFoodCatalog(gymId: String): List<AllowedFood> {
         val library = db.collection("foodLibrary").get().await().documents
         val ownFoods = db.collection("gyms").document(gymId).collection("foods").get().await().documents
-        return (library + ownFoods).mapNotNull { doc ->
+        // Alimentos propios del gimnasio primero. `foodLibrary` es una
+        // colección compartida pero cada panel que sincroniza sube su propia
+        // copia del catálogo global (ids distintos por instalación), así que
+        // hay nombres repetidos: `distinctBy` deja solo el primero de cada uno.
+        return (ownFoods + library).mapNotNull { doc ->
             val d = doc.toObject(FoodDoc::class.java) ?: return@mapNotNull null
             val name = d.name ?: return@mapNotNull null
             val category = d.category ?: return@mapNotNull null
@@ -182,7 +186,9 @@ class MealPlanRepository(
                 referenceQty = d.referenceQty,
                 referenceLabel = d.referenceLabel,
             )
-        }.sortedBy { it.name }
+        }
+            .distinctBy { it.name.trim().lowercase() }
+            .sortedBy { it.name }
     }
 
     /**
