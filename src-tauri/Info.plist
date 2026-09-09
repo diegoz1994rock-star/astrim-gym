@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Reconocimiento facial en el control de asistencia (useFaceCamera ->
+       navigator.mediaDevices.getUserMedia en el WKWebView de macOS). Sin
+       esta clave WKWebView no expone la API y macOS mata la app. -->
+  <key>NSCameraUsageDescription</key>
+  <string>ASTRIM GYM usa la cámara para el reconocimiento facial en el control de asistencia.</string>
+</dict>
+</plist>

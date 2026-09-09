@@ -201,10 +201,10 @@ export function FaceCaptureModal({
             <ShieldAlert className="h-8 w-8 text-danger" />
             <p className="text-sm text-danger">
               {status === "PERMISSION_DENIED"
-                ? "Se necesita permiso de cámara para continuar."
+                ? "Se necesita permiso de cámara para continuar. En Mac: Ajustes del Sistema → Privacidad y seguridad → Cámara → activá ASTRIM GYM."
                 : status === "MODEL_LOAD_ERROR"
                   ? "No se pudo cargar el reconocimiento facial."
-                  : "No se pudo acceder a la cámara."}
+                  : "No se pudo acceder a la cámara. Cerrá y reabrí la app; si persiste, dale permiso de cámara a ASTRIM GYM en Ajustes del Sistema."}
             </p>
             {mode === "RECOGNIZE" && (
               <p className="text-xs text-muted-foreground">Utiliza tu código de asistencia.</p>

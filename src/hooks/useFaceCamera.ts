@@ -26,6 +26,15 @@ export function useFaceCamera(active: boolean, deviceId?: string | null) {
       ? { deviceId: { ideal: deviceId } }
       : { facingMode: "user" };
 
+    // En algunos WebView (macOS sin permiso de cámara en Info.plist)
+    // `navigator.mediaDevices` es `undefined`: acceder a `.getUserMedia`
+    // tiraría un TypeError sincrónico que se come el try/catch y tumba la
+    // app. Se corta acá con un error manejable.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus("CAMERA_ERROR");
+      return;
+    }
+
     navigator.mediaDevices
       .getUserMedia({ video, audio: false })
       .then((stream) => {
