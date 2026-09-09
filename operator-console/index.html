@@ -937,11 +937,11 @@
       ontoggle: (e) => { e.target.open ? expandedGyms.add(g.id) : expandedGyms.delete(g.id); },
     },
       el("summary", {}, `Clientes con cuenta en la app · ${list.length}`),
-      ...list.map(clientRow),
+      ...list.map((c) => clientRow(g.id, c)),
     );
   }
 
-  function clientRow(c) {
+  function clientRow(gymId, c) {
     const cred = clientCredsById[c.clientId];
     const pass = cred && cred.password ? cred.password : "";
     const shown = revealedClients.has(c.clientId);
@@ -952,7 +952,7 @@
         el("div", { style: "font-size:13px;color:var(--text);word-break:break-all" }, c.email || "—"),
         pass
           ? el("span", { class: "pass-val" }, shown ? pass : "•".repeat(Math.min(pass.length, 14)))
-          : el("div", { class: "pass-none" }, "contraseña no guardada — usá Restablecer"),
+          : el("div", { class: "pass-none" }, "contraseña no guardada"),
       ),
       el("div", { class: "pass-actions" },
         pass ? el("button", { class: "btn btn-ghost btn-sm",
@@ -960,10 +960,51 @@
           shown ? "Ocultar" : "Revelar") : "",
         pass ? el("button", { class: "btn btn-ghost btn-sm",
           onclick: () => { navigator.clipboard.writeText(pass); toast("Contraseña copiada"); } }, "Copiar") : "",
+        el("button", { class: "btn btn-ghost btn-sm",
+          onclick: () => saveClientCredentialPrompt(gymId, c) }, pass ? "Editar" : "Guardar"),
         el("button", { class: "btn btn-ghost btn-sm", title: "Enviar correo de restablecimiento al cliente",
           onclick: () => sendClientReset(c) }, "Restablecer"),
       ),
     );
+  }
+
+  // El operador guarda a mano la contraseña de un cliente (la que el dueño le
+  // pasó, o una nueva). Igual que saveCredentialPrompt para los dueños.
+  function saveClientCredentialPrompt(gymId, c) {
+    const cur = clientCredsById[c.clientId] || {};
+    const overlay = el("div", { class: "overlay" });
+    const input = el("input", { type: "text", value: cur.password || "", placeholder: "Contraseña del cliente", autocomplete: "off" });
+    const errBox = el("div", { class: "form-error", hidden: "" });
+    const form = el("form", {},
+      el("p", { class: "msub" }, `Contraseña con la que ${c.email} entra a la app. Se guarda para poder recuperarla; se muestra solo acá y al dueño.`),
+      el("div", {}, el("label", {}, "Contraseña"), input),
+      errBox,
+      el("div", { class: "actions" },
+        el("button", { type: "button", class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancelar"),
+        el("button", { type: "submit", class: "btn btn-primary" }, "Guardar"),
+      ),
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pass = input.value;
+      if (pass.length < 6) { errBox.textContent = "Mínimo 6 caracteres."; errBox.hidden = false; return; }
+      try {
+        await setDoc(doc(db, "clientCredentials", c.clientId), {
+          gymId, clientId: c.clientId,
+          clientName: cur.clientName || "",
+          email: c.email || cur.email || "",
+          password: pass, updatedBy: "operator", updatedAt: serverTimestamp(),
+        });
+        overlay.remove();
+        toast("Contraseña guardada");
+      } catch (err) {
+        errBox.textContent = err.message; errBox.hidden = false;
+      }
+    });
+    overlay.append(el("div", { class: "modal" }, el("h3", {}, "Contraseña del cliente"), form));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    $("#modal-root").append(overlay);
+    input.focus();
   }
 
   async function setSuspended(g, suspend) {
