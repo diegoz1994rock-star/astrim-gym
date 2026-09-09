@@ -1,0 +1,59 @@
+name: Build APK de recepción (asistencia)
+
+# Se dispara solo (push a main) o a mano desde la pestaña "Actions"
+# ("Run workflow"). Produce el APK debug de la app de recepción/asistencia
+# (astrim-recepcion, con clave + reconocimiento facial) como artefacto
+# descargable e instalable en el celular/tablet de la entrada.
+#
+# Nota: es un APK debug (misma firma "debug" de siempre, como el de
+# clientes). Si el equipo ya tiene instalada una versión firmada distinta
+# (por ejemplo un release firmado a mano), Android va a pedir desinstalar
+# la anterior antes de instalar esta.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "astrim-recepcion/**"
+      - ".github/workflows/build-recepcion-android.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build-recepcion-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: astrim-recepcion/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar NDK
+        run: sdkmanager --install "ndk;27.2.12479018"
+
+      - name: Instalar dependencias
+        working-directory: astrim-recepcion
+        run: npm ci
+
+      - name: Compilar APK debug (Tauri Android)
+        working-directory: astrim-recepcion
+        run: npm run tauri android build -- --apk --debug
+
+      - name: Subir el APK como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASTRIM-Recepcion-Asistencia-apk
+          path: astrim-recepcion/src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
+          if-no-files-found: error
