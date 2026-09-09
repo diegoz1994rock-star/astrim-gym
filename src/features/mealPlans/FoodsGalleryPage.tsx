@@ -4,12 +4,17 @@ import { ArrowLeft, ImageOff, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import * as mealPlanService from "@/lib/services/mealPlanService";
 import { normalizeSearchText } from "@/lib/utils";
+import { foodImageUrl } from "@/lib/foodImages";
 import { FOOD_CATEGORY_OPTIONS, FOOD_CATEGORY_LABELS, type FoodListItem } from "@/types/mealPlan";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
+// Las fotos vienen empaquetadas con la app (public/food-images/<slug>.webp),
+// no de la base ni de Firestore. Si el alimento no tiene foto, onError muestra
+// el placeholder.
 function FoodImage({ food }: { food: FoodListItem }) {
-  if (!food.imageBase64) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
     return (
       <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-muted">
         <ImageOff className="h-6 w-6 text-muted-foreground" />
@@ -18,9 +23,11 @@ function FoodImage({ food }: { food: FoodListItem }) {
   }
   return (
     <img
-      src={`data:image/webp;base64,${food.imageBase64}`}
+      src={foodImageUrl(food.name)}
       alt={food.name}
-      className="aspect-square w-full rounded-lg object-cover"
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="aspect-square w-full rounded-lg bg-surface-muted object-cover"
     />
   );
 }

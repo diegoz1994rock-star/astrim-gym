@@ -1,5 +1,5 @@
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getCloudDb } from "./firebase";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { getCloudDb, isCloudConfigured } from "./firebase";
 import { firebaseConfig } from "./firebaseConfig";
 import { currentCloudUser } from "./cloudAuth";
 import * as clientRepository from "../repositories/clientRepository";
@@ -60,6 +60,7 @@ async function signUpViaRest(email: string, password: string): Promise<string> {
 export async function createClientLogin(
   gymId: string,
   clientId: string,
+  clientName: string,
   email: string,
   password: string,
 ): Promise<{ uid: string }> {
@@ -88,5 +89,60 @@ export async function createClientLogin(
   }
 
   await clientRepository.setClientCloudUid(gymId, clientId, uid);
+  // Credencial en texto para recuperación: la ve el dueño (su gimnasio) y el
+  // operador de ASTRIM. Misma idea que `gymCredentials` para los dueños. Si
+  // esto falla, el acceso ya quedó creado igual — no se corta el flujo.
+  await saveClientCredential(gymId, clientId, clientName, email, password).catch(() => {});
   return { uid };
+}
+
+/**
+ * Guarda (o actualiza) la contraseña del cliente en texto en
+ * `clientCredentials/{clientId}` para que se pueda recuperar si la olvida.
+ * Se usa al crear el acceso y también desde la ficha del cliente cuando el
+ * acceso ya existía de antes (o el dueño le puso una contraseña nueva).
+ */
+export async function saveClientCredential(
+  gymId: string,
+  clientId: string,
+  clientName: string,
+  email: string,
+  password: string,
+): Promise<void> {
+  if (!currentCloudUser()) {
+    throw new ClientAccountError(
+      "Primero inicia sesión con la cuenta de la nube del gimnasio (Configuración → Nube).",
+    );
+  }
+  await setDoc(doc(getCloudDb(), "clientCredentials", clientId), {
+    gymId,
+    clientId,
+    clientName: clientName.trim(),
+    email: email.trim(),
+    password,
+    updatedBy: "owner",
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Lee la credencial guardada de un cliente (correo + contraseña en texto)
+ * para mostrarla en la ficha. Devuelve `null` si no hay nube, no hay sesión,
+ * o el cliente no tiene credencial guardada.
+ */
+export async function readClientCredential(
+  clientId: string,
+): Promise<{ email: string; password: string } | null> {
+  if (!isCloudConfigured || !currentCloudUser()) return null;
+  try {
+    const snap = await getDoc(doc(getCloudDb(), "clientCredentials", clientId));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      email: typeof d.email === "string" ? d.email : "",
+      password: typeof d.password === "string" ? d.password : "",
+    };
+  } catch {
+    return null;
+  }
 }

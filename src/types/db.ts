@@ -423,7 +423,6 @@ export interface FoodRow {
   carbs_g: number | null;
   fat_g: number | null;
   fiber_g: number | null;
-  image_base64: string | null;
   created_at: string;
   updated_at: string;
 }

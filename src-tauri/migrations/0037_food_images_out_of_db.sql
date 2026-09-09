@@ -1,0 +1,12 @@
+-- Las fotos del catálogo de alimentos NO van en la base ni en Firestore:
+-- cada app (panel y APK de clientes) las trae empaquetadas y las resuelve
+-- por el nombre del alimento (ver src/lib/foodImages.ts y, en la app de
+-- clientes, ui/mealplan/FoodImages.kt). Firestore solo guarda los datos
+-- (nombre, macros, categoría, porción de referencia).
+--
+-- La columna foods.image_base64 (0035) queda vestigial —como video_path tras
+-- 0028—; acá se vacía por si alguien la cargó a mano. El UPDATE dispara
+-- trg_outbox_food_library_au: al re-sincronizar, el mapper de food_library
+-- ya no incluye imageBase64 y el setDoc (reemplazo completo) borra el campo
+-- de los docs foodLibrary/* que pudieran tenerlo.
+UPDATE foods SET image_base64 = NULL WHERE image_base64 IS NOT NULL;

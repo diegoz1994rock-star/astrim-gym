@@ -221,7 +221,8 @@ data class FoodDoc(
     val carbsG: Double? = null,
     val fatG: Double? = null,
     val fiberG: Double? = null,
-    val imageBase64: String? = null,
+    // La foto del alimento NO viene de Firestore: cada app la trae empaquetada
+    // y la resuelve por `name` (ver ui/mealplan/FoodImages.kt).
     // Porción de referencia en términos cotidianos (ej. "1 banano mediano" ≈ 120 g) —
     // solo completa para alimentos donde default_unit (g/ml) por sí solo no dice nada.
     val referenceQty: Double? = null,
@@ -250,7 +251,6 @@ data class MealLogEntryDoc(
     val proteinG: Double? = null,
     val carbsG: Double? = null,
     val fatG: Double? = null,
-    val photoBase64: String? = null,
     val createdAt: String? = null,
 )
 

@@ -254,6 +254,7 @@ export function ClientProfilePage() {
         <ClientAppAccessCard
           gymId={gymId}
           clientId={client.id}
+          clientName={client.name}
           clientEmail={client.email}
           cloudUid={client.cloudUid}
           onCreated={loadClient}

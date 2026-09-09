@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CheckCircle2, Cloud, CloudOff, Loader2, RefreshCw, UploadCloud } from "lucide-react";
+import { CheckCircle2, Cloud, CloudOff, DownloadCloud, Loader2, RefreshCw, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isCloudConfigured } from "@/lib/cloud/firebase";
 import { currentCloudUser, onCloudAuthChanged, signInGymOwner, signOutCloud } from "@/lib/cloud/cloudAuth";
 import { seedExerciseLibrary } from "@/lib/cloud/seedExerciseLibrary";
+import { restoreFromCloud, type RestoreSummary } from "@/lib/cloud/cloudRestoreService";
 import { buildOptimizedLogoBase64 } from "@/lib/cloud/logoImage";
 import * as outboxRepository from "@/lib/repositories/outboxRepository";
 import * as gymRepository from "@/lib/repositories/gymRepository";
@@ -32,6 +33,11 @@ export function CloudTab({ gymId }: CloudTabProps) {
   const [syncBusy, setSyncBusy] = useState<null | "sync" | "backfill" | "retry">(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreConfirm, setRestoreConfirm] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<RestoreSummary | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const [brandColor, setBrandColor] = useState("");
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -125,6 +131,22 @@ export function CloudTab({ gymId }: CloudTabProps) {
       setError(err instanceof Error ? err.message : "No se pudo guardar la marca.");
     } finally {
       setBrandBusy(false);
+    }
+  }
+
+  async function handleRestore() {
+    setRestoreBusy(true);
+    setRestoreError(null);
+    setRestoreResult(null);
+    try {
+      const result = await restoreFromCloud(gymId);
+      setRestoreResult(result);
+      setRestoreConfirm(false);
+      await refreshStats();
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : "No se pudo restaurar desde la nube.");
+    } finally {
+      setRestoreBusy(false);
     }
   }
 
@@ -287,6 +309,81 @@ export function CloudTab({ gymId }: CloudTabProps) {
           {error && <p className="text-sm text-danger">{error}</p>}
         </CardContent>
       </Card>
+
+      {signedInEmail && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recuperar datos (PC nueva)</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Si formateaste o cambiaste de computadora: instalá el panel, iniciá sesión con la
+              cuenta de la nube y usá esto para traer de vuelta desde Firebase{" "}
+              <strong>entrenadores, clientes (con su usuario y contraseña de la app), ejercicios del
+              gimnasio, rutinas y planes de alimentación</strong>. No trae historial ni membresías,
+              pagos, asistencias, medidas ni asignaciones — eso queda en la nube pero no se descarga.
+              No pisa nada que ya tengas cargado.
+            </p>
+
+            {!restoreConfirm ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="w-fit"
+                disabled={restoreBusy}
+                onClick={() => {
+                  setRestoreConfirm(true);
+                  setRestoreResult(null);
+                  setRestoreError(null);
+                }}
+              >
+                <DownloadCloud className="h-4 w-4" />
+                Restaurar desde la nube
+              </Button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-foreground">¿Traer los datos del gimnasio desde la nube?</span>
+                <Button type="button" size="sm" disabled={restoreBusy} onClick={() => void handleRestore()}>
+                  {restoreBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
+                  Sí, restaurar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={restoreBusy}
+                  onClick={() => setRestoreConfirm(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            )}
+
+            {restoreResult && (
+              <div className="flex flex-col gap-1 rounded-md border border-success/25 bg-success-soft px-3 py-2 text-sm text-success">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Restauración completa
+                </span>
+                <span className="text-foreground">
+                  {restoreResult.trainers} entrenadores · {restoreResult.clients} clientes ·{" "}
+                  {restoreResult.exercises} ejercicios · {restoreResult.routines} rutinas (
+                  {restoreResult.routineExercises} ejercicios) · {restoreResult.mealPlans} planes de
+                  alimentación ({restoreResult.mealPlanItems} items, {restoreResult.mealPlanTargets}{" "}
+                  metas)
+                </span>
+                {restoreResult.errors.length > 0 && (
+                  <span className="text-warning">
+                    Con avisos: {restoreResult.errors.join(" · ")}
+                  </span>
+                )}
+              </div>
+            )}
+            {restoreError && <p className="text-sm text-danger">{restoreError}</p>}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

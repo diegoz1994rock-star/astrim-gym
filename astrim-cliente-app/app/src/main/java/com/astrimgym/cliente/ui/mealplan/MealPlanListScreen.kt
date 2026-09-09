@@ -389,7 +389,7 @@ private fun MealTypeSection(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         FoodImage(
-                            base64 = entry.imageBase64,
+                            foodName = entry.foodName,
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape),

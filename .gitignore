@@ -103,3 +103,6 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 !.env.example
+
+# === Firebase CLI (caché de deploy, local) ===
+.firebase/

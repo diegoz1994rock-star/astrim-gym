@@ -9,7 +9,13 @@ import type { OutboxEntity, Row } from "../cloud/mappers";
  * sincronizar) — el worker trata ese caso como DELETE.
  */
 const QUERIES: Record<OutboxEntity, string> = {
-  gyms: `SELECT * FROM gyms WHERE id = $1`,
+  // client_count / active_client_count: la consola de operador los muestra
+  // sin tener acceso a los clientes en sí (ver mapper de `gyms`).
+  gyms: `
+    SELECT g.*,
+      (SELECT COUNT(*) FROM clients c WHERE c.gym_id = g.id) AS client_count,
+      (SELECT COUNT(*) FROM clients c WHERE c.gym_id = g.id AND c.status = 'ACTIVE') AS active_client_count
+    FROM gyms g WHERE g.id = $1`,
   trainers: `SELECT * FROM trainers WHERE id = $1`,
   membership_plans: `SELECT * FROM membership_plans WHERE id = $1`,
   clients: `

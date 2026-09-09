@@ -220,6 +220,18 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0036_food_reference_serving.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 37,
+            description: "food_images_out_of_db",
+            sql: include_str!("../migrations/0037_food_images_out_of_db.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 38,
+            description: "gym_client_count_sync",
+            sql: include_str!("../migrations/0038_gym_client_count_sync.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

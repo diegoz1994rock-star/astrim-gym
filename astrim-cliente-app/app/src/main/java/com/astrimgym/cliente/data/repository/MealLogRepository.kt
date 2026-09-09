@@ -22,7 +22,6 @@ data class MealLogEntry(
     val protein: Double,
     val carbs: Double,
     val fat: Double,
-    val imageBase64: String?,
     val createdAt: String,
 )
 
@@ -153,7 +152,6 @@ class MealLogRepository(
         "proteinG" to macros.protein,
         "carbsG" to macros.carbs,
         "fatG" to macros.fat,
-        "photoBase64" to food.imageBase64,
         "createdAt" to createdAt,
     )
 
@@ -174,7 +172,6 @@ class MealLogRepository(
             protein = d.proteinG ?: 0.0,
             carbs = d.carbsG ?: 0.0,
             fat = d.fatG ?: 0.0,
-            imageBase64 = d.photoBase64,
             createdAt = d.createdAt.orEmpty(),
         )
     }

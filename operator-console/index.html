@@ -293,7 +293,16 @@
     word-break: break-all;
   }
   .pass-none { font-size: 12px; color: var(--subtle); margin-top: 3px; }
-  .pass-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .pass-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+  .clients-details { border: 1px solid var(--border); border-radius: 11px; padding: 4px 12px; background: rgba(0, 0, 0, 0.2); }
+  .clients-details summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); padding: 7px 0; list-style: none; display: flex; align-items: center; gap: 6px; }
+  .clients-details summary::-webkit-details-marker { display: none; }
+  .clients-details summary::before { content: "▸"; font-size: 10px; transition: transform 0.15s; }
+  .clients-details[open] summary::before { transform: rotate(90deg); }
+  .clients-details summary:hover { color: var(--text); }
+  .clients-details .pass-row { margin: 6px 0; }
+  .clients-none { font-size: 12px; color: var(--subtle); padding: 2px 0; }
 
   .gc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .gc-actions .btn-sm { flex: 1 1 auto; }
@@ -577,10 +586,14 @@
 
   let unsub = null;
   let unsubCreds = null;
+  let unsubClientCreds = null;
+  let unsubClientIndex = null;
 
   onAuthStateChanged(auth, (user) => {
     if (unsub) { unsub(); unsub = null; }
     if (unsubCreds) { unsubCreds(); unsubCreds = null; }
+    if (unsubClientCreds) { unsubClientCreds(); unsubClientCreds = null; }
+    if (unsubClientIndex) { unsubClientIndex(); unsubClientIndex = null; }
     if (!user) {
       show("login");
       return;
@@ -594,6 +607,8 @@
     show("app");
     subscribeGyms();
     subscribeCreds();
+    subscribeClientCreds();
+    subscribeClientIndex();
   });
 
   function show(view) {
@@ -627,6 +642,40 @@
       snap.docs.forEach((d) => { creds[d.id] = d.data(); });
       renderList();
     }, (err) => console.warn("gymCredentials:", err.message));
+  }
+
+  // Todas las cuentas de la app: `userIndex` (role CLIENT) da el correo de
+  // cada cliente por gimnasio (el operador ya puede leer userIndex).
+  // `clientCredentials` agrega la contraseña en texto donde el dueño la guardó.
+  let clientIndex = {};   // gymId -> [ { uid, clientId, email } ]
+  let clientCredsById = {}; // clientId -> { password, clientName, email }
+  const revealedClients = new Set(); // clientId con la contraseña visible
+  const expandedGyms = new Set();     // gymId con la lista de clientes desplegada
+
+  function subscribeClientIndex() {
+    unsubClientIndex = onSnapshot(collection(db, "userIndex"), (snap) => {
+      clientIndex = {};
+      snap.docs.forEach((d) => {
+        const u = d.data();
+        if (u.role !== "CLIENT" || !u.gymId) return;
+        (clientIndex[u.gymId] = clientIndex[u.gymId] || []).push({
+          uid: d.id,
+          clientId: u.clientId || d.id,
+          email: u.email || "",
+        });
+      });
+      Object.values(clientIndex).forEach((arr) =>
+        arr.sort((a, b) => (a.email || "").localeCompare(b.email || "")));
+      renderList();
+    }, (err) => console.warn("userIndex:", err.message));
+  }
+
+  function subscribeClientCreds() {
+    unsubClientCreds = onSnapshot(collection(db, "clientCredentials"), (snap) => {
+      clientCredsById = {};
+      snap.docs.forEach((d) => { clientCredsById[d.id] = d.data(); });
+      renderList();
+    }, (err) => console.warn("clientCredentials:", err.message));
   }
 
   $("#search").addEventListener("input", renderList);
@@ -682,6 +731,34 @@
       onclick: () => { navigator.clipboard.writeText(g.id); toast("gymId copiado"); } },
       "⧉ " + g.id);
 
+    // Correo del dueño, clickable para copiar.
+    const ownerEmail = el("span", {
+      class: "gid", style: "margin-left:10px",
+      title: "Copiar correo del dueño",
+      onclick: () => { navigator.clipboard.writeText(g.ownerEmail || ""); toast("Correo copiado"); },
+    }, "✉ " + (g.ownerEmail || "—"));
+
+    // Total de clientes del gimnasio: viene denormalizado en el doc `gyms`
+    // (lo sube el panel del dueño). Aparte, abajo, va el detalle de los que
+    // tienen cuenta en la app (userIndex).
+    const hasCount = typeof g.clientCount === "number";
+    const withAppAccount = (clientIndex[g.id] || []).length;
+    const clientsRow = el("div", { class: "license-row" },
+      el("div", {},
+        el("div", { class: "lbl" }, "Clientes (total en el panel)"),
+        el("div", { class: "val" },
+          hasCount ? String(g.clientCount) : "—",
+          hasCount && typeof g.activeClientCount === "number"
+            ? el("small", {}, ` · ${g.activeClientCount} activo${g.activeClientCount === 1 ? "" : "s"}`)
+            : "",
+        ),
+      ),
+      el("div", { style: "text-align:right" },
+        el("div", { class: "lbl" }, "Con cuenta en la app"),
+        el("div", { class: "val" }, String(withAppAccount)),
+      ),
+    );
+
     const renewSel = el("select", { style: "max-width:96px" },
       ...[1, 3, 6, 12].map((m) => el("option", { value: m }, `${m} mes${m === 1 ? "" : "es"}`)));
 
@@ -707,12 +784,14 @@
       el("div", { class: "gc-top" },
         el("div", {},
           el("h3", {}, g.name || "(sin nombre)"),
-          el("div", { class: "owner" }, `${g.ownerName || "—"} · ${g.ownerEmail || "—"}`),
+          el("div", { class: "owner" }, g.ownerName || "—"),
         ),
         el("span", { class: "badge " + st }, STATUS_LABEL[st]),
       ),
-      gid,
+      el("div", { style: "display:flex;flex-wrap:wrap;gap:4px 0" }, gid, ownerEmail),
+      clientsRow,
       passwordRow(g),
+      clientsSection(g),
       el("div", { class: "license-row" },
         el("div", {},
           el("div", { class: "lbl" }, "Licencia vence"),
@@ -815,22 +894,76 @@
     } catch (e) { toast("Error al renovar: " + e.message, "err"); }
   }
 
+  async function sendPasswordResetEmail(email) {
+    const r = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${firebaseConfig.apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json", "X-Firebase-Locale": "es" },
+        body: JSON.stringify({ requestType: "PASSWORD_RESET", email }) },
+    );
+    const b = await r.json();
+    if (!r.ok) throw new Error(b.error?.message || "No se pudo enviar");
+    toast(`Correo enviado a ${email}`);
+  }
+
   function sendReset(g) {
     openModal({
       title: "Restablecer contraseña",
       sub: `Le mandamos un correo a ${g.ownerEmail} con un enlace para poner una contraseña nueva. Sirve cuando el dueño la perdió y no la tenés guardada.`,
       submitLabel: "Enviar correo",
-      onSubmit: async () => {
-        const r = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${firebaseConfig.apiKey}`,
-          { method: "POST", headers: { "Content-Type": "application/json", "X-Firebase-Locale": "es" },
-            body: JSON.stringify({ requestType: "PASSWORD_RESET", email: g.ownerEmail }) },
-        );
-        const b = await r.json();
-        if (!r.ok) throw new Error(b.error?.message || "No se pudo enviar");
-        toast(`Correo enviado a ${g.ownerEmail}`);
-      },
+      onSubmit: () => sendPasswordResetEmail(g.ownerEmail),
     });
+  }
+
+  function sendClientReset(c) {
+    openModal({
+      title: "Restablecer contraseña del cliente",
+      sub: `Le mandamos un correo a ${c.email} con un enlace para poner una contraseña nueva.`,
+      submitLabel: "Enviar correo",
+      onSubmit: () => sendPasswordResetEmail(c.email),
+    });
+  }
+
+  // Lista desplegable de los clientes de un gimnasio que tienen cuenta en la
+  // app (vienen de `userIndex`). El correo siempre está; la contraseña solo
+  // si el dueño la guardó desde su panel (`clientCredentials`).
+  function clientsSection(g) {
+    const list = clientIndex[g.id] || [];
+    if (list.length === 0) {
+      return el("div", { class: "clients-none" }, "Ningún cliente con cuenta en la app todavía.");
+    }
+    return el("details", {
+      class: "clients-details",
+      ...(expandedGyms.has(g.id) ? { open: "" } : {}),
+      ontoggle: (e) => { e.target.open ? expandedGyms.add(g.id) : expandedGyms.delete(g.id); },
+    },
+      el("summary", {}, `Clientes con cuenta en la app · ${list.length}`),
+      ...list.map(clientRow),
+    );
+  }
+
+  function clientRow(c) {
+    const cred = clientCredsById[c.clientId];
+    const pass = cred && cred.password ? cred.password : "";
+    const shown = revealedClients.has(c.clientId);
+    const name = (cred && cred.clientName) || "";
+    return el("div", { class: "pass-row" },
+      el("div", { style: "min-width:0" },
+        name ? el("div", { class: "lbl" }, name) : "",
+        el("div", { style: "font-size:13px;color:var(--text);word-break:break-all" }, c.email || "—"),
+        pass
+          ? el("span", { class: "pass-val" }, shown ? pass : "•".repeat(Math.min(pass.length, 14)))
+          : el("div", { class: "pass-none" }, "contraseña no guardada — usá Restablecer"),
+      ),
+      el("div", { class: "pass-actions" },
+        pass ? el("button", { class: "btn btn-ghost btn-sm",
+          onclick: () => { shown ? revealedClients.delete(c.clientId) : revealedClients.add(c.clientId); renderList(); } },
+          shown ? "Ocultar" : "Revelar") : "",
+        pass ? el("button", { class: "btn btn-ghost btn-sm",
+          onclick: () => { navigator.clipboard.writeText(pass); toast("Contraseña copiada"); } }, "Copiar") : "",
+        el("button", { class: "btn btn-ghost btn-sm", title: "Enviar correo de restablecimiento al cliente",
+          onclick: () => sendClientReset(c) }, "Restablecer"),
+      ),
+    );
   }
 
   async function setSuspended(g, suspend) {
@@ -866,6 +999,10 @@
         await deleteDoc(doc(db, "gyms", g.id));
         await deleteDoc(doc(db, "gymCredentials", g.id)).catch(() => {});
         if (g.ownerUid) await deleteDoc(doc(db, "userIndex", g.ownerUid)).catch(() => {});
+        for (const c of (clientIndex[g.id] || [])) {
+          await deleteDoc(doc(db, "clientCredentials", c.clientId)).catch(() => {});
+          await deleteDoc(doc(db, "userIndex", c.uid)).catch(() => {});
+        }
         toast(`${g.name} eliminado`);
       },
     });

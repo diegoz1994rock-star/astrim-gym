@@ -70,6 +70,24 @@ service cloud.firestore {
       allow delete: if isOperator();
     }
 
+    // ---- Credencial del cliente en texto (recuperación de contraseña) ----
+    // Para ayudar a un cliente que olvidó su clave de la app. La escribe el
+    // panel del dueño al crear/actualizar el acceso (clientAccountService.ts).
+    // La consola de operador la lista por gimnasio; el dueño puede leer las de
+    // su propio gimnasio. Nadie más.
+    match /clientCredentials/{clientId} {
+      allow get: if isOperator()
+        || (signedIn() && idx().role == 'ADMIN'
+            && (resource == null || resource.data.gymId == idx().gymId));
+      allow list: if isOperator()
+        || (signedIn() && idx().role == 'ADMIN' && resource.data.gymId == idx().gymId);
+      allow create, update: if isOperator()
+        || (signedIn() && idx().role == 'ADMIN' && request.resource.data.gymId == idx().gymId);
+      allow delete: if isOperator()
+        || (signedIn() && idx().role == 'ADMIN'
+            && (resource == null || resource.data.gymId == idx().gymId));
+    }
+
     // ---- Biblioteca global de ejercicios (compartida) ----
     match /exerciseLibrary/{exerciseId} {
       allow read: if signedIn();

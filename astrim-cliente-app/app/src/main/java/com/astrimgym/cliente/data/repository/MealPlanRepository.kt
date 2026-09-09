@@ -18,7 +18,6 @@ data class AllowedFood(
     val proteinG: Double?,
     val carbsG: Double?,
     val fatG: Double?,
-    val imageBase64: String? = null,
     /** Porción de referencia en términos cotidianos (ej. "1 banano mediano" ≈ 120 g). */
     val referenceQty: Double? = null,
     val referenceLabel: String? = null,
@@ -180,7 +179,6 @@ class MealPlanRepository(
                 proteinG = d.proteinG,
                 carbsG = d.carbsG,
                 fatG = d.fatG,
-                imageBase64 = d.imageBase64,
                 referenceQty = d.referenceQty,
                 referenceLabel = d.referenceLabel,
             )

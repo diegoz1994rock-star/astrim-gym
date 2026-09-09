@@ -152,7 +152,7 @@ export async function deleteMealPlan(gymId: string, id: string): Promise<void> {
 
 const FOOD_SELECT = `
   SELECT id, gym_id, name, category, default_unit,
-         calories_kcal, protein_g, carbs_g, fat_g, fiber_g, image_base64, created_at, updated_at
+         calories_kcal, protein_g, carbs_g, fat_g, fiber_g, created_at, updated_at
   FROM foods
 `;
 

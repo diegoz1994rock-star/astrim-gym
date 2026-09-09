@@ -73,7 +73,6 @@ export interface FoodListItem {
   carbsG: number | null;
   fatG: number | null;
   fiberG: number | null;
-  imageBase64: string | null;
 }
 
 // ---- Objetivo del plan ----

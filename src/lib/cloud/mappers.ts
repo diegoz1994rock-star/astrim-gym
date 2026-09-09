@@ -153,6 +153,10 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         email: s(row.email),
         address: s(row.address),
         city: s(row.city),
+        // Conteo de clientes para la consola de operador (no le da acceso a
+        // los datos de los clientes, solo el número). Lo calcula el snapshot.
+        clientCount: n(row.client_count) ?? 0,
+        activeClientCount: n(row.active_client_count) ?? 0,
       };
     case "trainers":
       return {
@@ -304,6 +308,10 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         calf: n(row.calf),
         hip: n(row.hip),
         muscleMass: n(row.muscle_mass),
+        // Para restaurar el vínculo con la cuenta de la app si se pierde la
+        // PC (ver cloudRestoreService). Es el propio uid del cliente, no un
+        // dato sensible.
+        cloudUid: s(row.cloud_uid),
       };
     case "memberships":
       return {
@@ -355,7 +363,8 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         carbsG: n(row.carbs_g),
         fatG: n(row.fat_g),
         fiberG: n(row.fiber_g),
-        imageBase64: s(row.image_base64),
+        // La foto NO viaja a Firestore: cada app la trae empaquetada y la
+        // resuelve por nombre (ver src/lib/foodImages.ts).
         referenceQty: n(row.reference_qty),
         referenceLabel: s(row.reference_label),
       };
@@ -369,7 +378,6 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         carbsG: n(row.carbs_g),
         fatG: n(row.fat_g),
         fiberG: n(row.fiber_g),
-        imageBase64: s(row.image_base64),
         referenceQty: n(row.reference_qty),
         referenceLabel: s(row.reference_label),
       };

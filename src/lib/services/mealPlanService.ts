@@ -136,7 +136,6 @@ function mapFoodRowToListItem(row: FoodRow): FoodListItem {
     carbsG: row.carbs_g,
     fatG: row.fat_g,
     fiberG: row.fiber_g,
-    imageBase64: row.image_base64,
   };
 }
 
