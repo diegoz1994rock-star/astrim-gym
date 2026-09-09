@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, LogIn, ScanFace, ShieldAlert, ShieldCheck, ShieldX, Wifi, WifiOff } from "lucide-react";
+import { Keyboard, LogIn, LogOut, ScanFace, ShieldAlert, ShieldCheck, ShieldX, Wifi, WifiOff } from "lucide-react";
 import { pingServer, registerAccess, registerAccessByFace, type AccessOutcome } from "@/lib/lanClient";
 import { enqueuePendingCode, getPendingCount, peekOldestPending, removePending } from "@/lib/offlineQueue";
 import { forgetStoredDevice, type StoredDevice } from "@/lib/deviceStorage";
@@ -282,7 +282,20 @@ export function AccessScreen({ device, onRevoked, onUnlinked }: AccessScreenProp
           <p className="text-lg font-semibold tracking-tight">{device.gymName || "ASTRIM GYM"}</p>
           <p className="text-sm text-primary-foreground/70">Control de acceso</p>
         </div>
-        <ConnectionBadge connection={connection} />
+        <div className="flex items-center gap-3">
+          <ConnectionBadge connection={connection} />
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmUnlink(false);
+              setSettingsOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-1.5 text-xs font-medium text-primary-foreground/80"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Cerrar sesión
+          </button>
+        </div>
       </header>
 
       <div className="flex w-full max-w-md flex-1 flex-col items-center justify-center">
@@ -406,7 +419,7 @@ export function AccessScreen({ device, onRevoked, onUnlinked }: AccessScreenProp
                   onClick={() => setConfirmUnlink(true)}
                   className="rounded-lg bg-danger px-4 py-2 text-sm text-white"
                 >
-                  Olvidar este dispositivo
+                  Cerrar sesión
                 </button>
               </div>
             ) : (
@@ -428,7 +441,7 @@ export function AccessScreen({ device, onRevoked, onUnlinked }: AccessScreenProp
                     onClick={handleUnlink}
                     className="rounded-lg bg-danger px-4 py-2 text-sm text-white"
                   >
-                    Confirmar
+                    Cerrar sesión
                   </button>
                 </div>
               </div>
