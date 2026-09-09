@@ -30,6 +30,7 @@ export function CloudTab({ gymId }: CloudTabProps) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [stats, setStats] = useState<SyncStats>({ pending: 0, failed: 0, lastSyncedAt: null });
+  const [failedItems, setFailedItems] = useState<outboxRepository.FailedOutboxItem[]>([]);
   const [syncBusy, setSyncBusy] = useState<null | "sync" | "backfill" | "retry">(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +49,14 @@ export function CloudTab({ gymId }: CloudTabProps) {
   useEffect(() => onCloudAuthChanged((u) => setSignedInEmail(u?.email ?? null)), []);
 
   const refreshStats = useCallback(async () => {
-    const [pending, failed, lastSyncedAt] = await Promise.all([
+    const [pending, failed, lastSyncedAt, failedItems] = await Promise.all([
       outboxRepository.countByStatus("PENDING"),
       outboxRepository.countByStatus("FAILED"),
       outboxRepository.lastSyncedAt(),
+      outboxRepository.listFailed(),
     ]);
     setStats({ pending, failed, lastSyncedAt });
+    setFailedItems(failedItems);
   }, []);
 
   useEffect(() => {
@@ -307,6 +310,24 @@ export function CloudTab({ gymId }: CloudTabProps) {
             </p>
           )}
           {error && <p className="text-sm text-danger">{error}</p>}
+
+          {failedItems.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-md border border-danger/25 bg-danger/5 p-3">
+              <p className="text-xs font-medium text-danger">
+                Detalle de lo que está fallando (para diagnosticar):
+              </p>
+              <div className="flex flex-col gap-1.5 text-xs">
+                {failedItems.map((item, i) => (
+                  <div key={`${item.entity}-${item.entityId}-${i}`} className="text-muted-foreground">
+                    <span className="font-mono text-foreground">
+                      {item.entity}/{item.entityId}
+                    </span>{" "}
+                    ({item.attempts} intentos): {item.lastError ?? "—"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

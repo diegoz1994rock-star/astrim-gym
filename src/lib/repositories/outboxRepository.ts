@@ -96,6 +96,28 @@ export async function countByStatus(status: OutboxStatus): Promise<number> {
   return rows[0]?.c ?? 0;
 }
 
+export interface FailedOutboxItem {
+  entity: OutboxEntity;
+  entityId: string;
+  lastError: string | null;
+  attempts: number;
+}
+
+/** Detalle de las filas FAILED, para mostrarle al usuario por qué no suben. */
+export async function listFailed(limit = 20): Promise<FailedOutboxItem[]> {
+  const db = await getDb();
+  const rows = await db.select<OutboxRow[]>(
+    `SELECT * FROM outbox WHERE status = 'FAILED' ORDER BY enqueued_at DESC LIMIT $1`,
+    [limit],
+  );
+  return rows.map((r) => ({
+    entity: r.entity,
+    entityId: r.entity_id,
+    lastError: r.last_error,
+    attempts: r.attempts,
+  }));
+}
+
 export async function lastSyncedAt(): Promise<string | null> {
   const db = await getDb();
   const rows = await db.select<{ t: string | null }[]>(
