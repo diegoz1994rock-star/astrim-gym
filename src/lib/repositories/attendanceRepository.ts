@@ -41,7 +41,7 @@ export async function findOpenAttendanceForClientToday(
   const db = await getDb();
   const rows = await db.select<{ id: string }[]>(
     `SELECT id FROM attendance
-     WHERE gym_id = $1 AND client_id = $2 AND date = date('now') AND check_out IS NULL
+     WHERE gym_id = $1 AND client_id = $2 AND date = date('now', 'localtime') AND check_out IS NULL
      LIMIT 1`,
     [gymId, clientId],
   );
@@ -60,9 +60,9 @@ export async function findOpenAttendanceWithElapsed(
 ): Promise<{ id: string; seconds_since_entry: number } | null> {
   const db = await getDb();
   const rows = await db.select<{ id: string; seconds_since_entry: number }[]>(
-    `SELECT id, (strftime('%s', 'now') - strftime('%s', date || ' ' || check_in)) AS seconds_since_entry
+    `SELECT id, (strftime('%s', 'now', 'localtime') - strftime('%s', date || ' ' || check_in)) AS seconds_since_entry
      FROM attendance
-     WHERE gym_id = $1 AND client_id = $2 AND date = date('now') AND check_out IS NULL
+     WHERE gym_id = $1 AND client_id = $2 AND date = date('now', 'localtime') AND check_out IS NULL
      LIMIT 1`,
     [gymId, clientId],
   );
@@ -77,7 +77,13 @@ export interface CreateAttendanceInput {
   deviceId: string | null;
 }
 
-/** date/check_in siempre se generan con las funciones de fecha de SQLite, nunca con el reloj del frontend. */
+/**
+ * date/check_in siempre se generan con las funciones de fecha de SQLite, nunca
+ * con el reloj del frontend. Con el modificador 'localtime' quedan en la hora
+ * local del equipo (no en UTC), que es la que el recepcionista y el cliente
+ * esperan ver — sin él, un check-in a las 14:00 en Colombia se guardaba como
+ * las 19:00.
+ */
 export async function createAttendance(
   gymId: string,
   id: string,
@@ -86,7 +92,7 @@ export async function createAttendance(
   const db = await getDb();
   await db.execute(
     `INSERT INTO attendance (id, gym_id, client_id, date, check_in, status, membership_id, notes, entry_method, device_id)
-     VALUES ($1, $2, $3, date('now'), time('now'), 'PRESENT', $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, date('now', 'localtime'), time('now', 'localtime'), 'PRESENT', $4, $5, $6, $7)`,
     [id, gymId, input.clientId, input.membershipId, input.notes, input.entryMethod, input.deviceId],
   );
 }
@@ -99,7 +105,7 @@ export async function checkOutAttendance(
 ): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `UPDATE attendance SET check_out = time('now'), exit_method = $3
+    `UPDATE attendance SET check_out = time('now', 'localtime'), exit_method = $3
      WHERE id = $1 AND gym_id = $2 AND check_out IS NULL`,
     [id, gymId, exitMethod],
   );
@@ -115,9 +121,9 @@ export async function getStats(gymId: string): Promise<AttendanceStatsRow> {
   const db = await getDb();
   const rows = await db.select<AttendanceStatsRow[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN date = date('now') THEN 1 ELSE 0 END), 0) AS today,
-       COALESCE(SUM(CASE WHEN date = date('now') AND check_in IS NOT NULL AND check_out IS NULL THEN 1 ELSE 0 END), 0) AS inside_now,
-       COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now') THEN 1 ELSE 0 END), 0) AS this_month
+       COALESCE(SUM(CASE WHEN date = date('now', 'localtime') THEN 1 ELSE 0 END), 0) AS today,
+       COALESCE(SUM(CASE WHEN date = date('now', 'localtime') AND check_in IS NOT NULL AND check_out IS NULL THEN 1 ELSE 0 END), 0) AS inside_now,
+       COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now', 'localtime') THEN 1 ELSE 0 END), 0) AS this_month
      FROM attendance WHERE gym_id = $1`,
     [gymId],
   );
@@ -152,7 +158,7 @@ export async function getTopAttendeesThisMonth(gymId: string, limit: number): Pr
     `SELECT a.client_id, c.name AS client_name, COUNT(*) AS visits
      FROM attendance a
      JOIN clients c ON c.id = a.client_id
-     WHERE a.gym_id = $1 AND strftime('%Y-%m', a.date) = strftime('%Y-%m', 'now')
+     WHERE a.gym_id = $1 AND strftime('%Y-%m', a.date) = strftime('%Y-%m', 'now', 'localtime')
      GROUP BY a.client_id
      ORDER BY visits DESC, client_name COLLATE NOCASE ASC
      LIMIT $2`,

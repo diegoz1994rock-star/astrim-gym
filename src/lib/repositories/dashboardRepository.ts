@@ -44,8 +44,8 @@ export async function getAttendanceCounts(gymId: string): Promise<AttendanceCoun
   const db = await getDb();
   const rows = await db.select<AttendanceCountsRow[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN date = date('now') THEN 1 ELSE 0 END), 0) AS today,
-       COALESCE(SUM(CASE WHEN date >= date('now', '-6 days') THEN 1 ELSE 0 END), 0) AS week
+       COALESCE(SUM(CASE WHEN date = date('now', 'localtime') THEN 1 ELSE 0 END), 0) AS today,
+       COALESCE(SUM(CASE WHEN date >= date('now', 'localtime', '-6 days') THEN 1 ELSE 0 END), 0) AS week
      FROM attendance WHERE gym_id = $1`,
     [gymId],
   );
