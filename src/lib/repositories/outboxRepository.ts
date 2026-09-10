@@ -99,20 +99,33 @@ export async function countByStatus(status: OutboxStatus): Promise<number> {
 export interface FailedOutboxItem {
   entity: OutboxEntity;
   entityId: string;
+  op: OutboxOp;
+  status: OutboxStatus;
   lastError: string | null;
   attempts: number;
 }
 
-/** Detalle de las filas FAILED, para mostrarle al usuario por qué no suben. */
+/**
+ * Detalle de todo lo que NO está subiendo: las filas `FAILED` (agotaron los
+ * reintentos) y también las `PENDING` que ya fallaron al menos una vez y
+ * están esperando el backoff. Antes solo se mostraban las `FAILED`, así que
+ * el usuario no veía el motivo hasta ~1 h después. Ahora aparece al toque.
+ */
 export async function listFailed(limit = 20): Promise<FailedOutboxItem[]> {
   const db = await getDb();
   const rows = await db.select<OutboxRow[]>(
-    `SELECT * FROM outbox WHERE status = 'FAILED' ORDER BY enqueued_at DESC LIMIT $1`,
+    `SELECT * FROM outbox
+     WHERE status = 'FAILED'
+        OR (status = 'PENDING' AND (attempts > 0 OR last_error IS NOT NULL))
+     ORDER BY status DESC, attempts DESC, enqueued_at DESC
+     LIMIT $1`,
     [limit],
   );
   return rows.map((r) => ({
     entity: r.entity,
     entityId: r.entity_id,
+    op: r.op,
+    status: r.status,
     lastError: r.last_error,
     attempts: r.attempts,
   }));

@@ -61,6 +61,10 @@ export function CloudTab({ gymId }: CloudTabProps) {
 
   useEffect(() => {
     void refreshStats();
+    // El worker de sync corre en segundo plano; refrescamos cada tanto para
+    // que el detalle de errores aparezca sin tener que apretar un botón.
+    const id = setInterval(() => void refreshStats(), 10_000);
+    return () => clearInterval(id);
   }, [refreshStats]);
 
   useEffect(() => {
@@ -320,9 +324,11 @@ export function CloudTab({ gymId }: CloudTabProps) {
                 {failedItems.map((item, i) => (
                   <div key={`${item.entity}-${item.entityId}-${i}`} className="text-muted-foreground">
                     <span className="font-mono text-foreground">
-                      {item.entity}/{item.entityId}
+                      {item.op} {item.entity}/{item.entityId}
                     </span>{" "}
-                    ({item.attempts} intentos): {item.lastError ?? "—"}
+                    [{item.status === "FAILED" ? "fallido" : "pendiente"}, {item.attempts}{" "}
+                    {item.attempts === 1 ? "intento" : "intentos"}]:{" "}
+                    <span className="text-danger">{item.lastError ?? "—"}</span>
                   </div>
                 ))}
               </div>

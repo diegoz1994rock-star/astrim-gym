@@ -120,10 +120,19 @@ export async function syncNow(): Promise<SyncResult> {
             syncedIds.push(item.id);
           } catch (err) {
             failed += 1;
-            await outboxRepository.markFailed(
-              item.id,
-              err instanceof Error ? err.message : String(err),
-            );
+            // Mensaje con el código de Firestore + la ruta del doc, para
+            // poder diagnosticar desde Configuración → Nube sin DevTools.
+            const code = (err as { code?: string })?.code;
+            const base = err instanceof Error ? err.message : String(err);
+            let path = "";
+            try {
+              path = cloudPath(item.entity, item.entityId, item.payload).join("/");
+            } catch {
+              /* la ruta no se pudo armar (payload incompleto): el mensaje ya lo dice */
+            }
+            const msg = [code, path && `(${path})`, base].filter(Boolean).join(" ");
+            console.error(`[OutboxSync] ${item.entity}/${item.entityId} falló: ${msg}`, err);
+            await outboxRepository.markFailed(item.id, msg);
           }
         }),
       );
