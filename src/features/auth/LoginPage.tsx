@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -8,15 +8,62 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/Spinner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+/**
+ * "Recordar usuario y contraseña": guarda las credenciales en el
+ * almacenamiento local del equipo para que, al reiniciar el PC, el
+ * formulario ya venga lleno y solo haya que pulsar "Ingresar". Es una PC de
+ * recepción de un solo gimnasio; el mismo nivel de exposición que el hash
+ * local y la copia en la nube que la app ya maneja. Si se desmarca, se borra.
+ */
+const REMEMBER_KEY = "astrim.login.remember";
+
+interface RememberedCredentials {
+  email: string;
+  password: string;
+}
+
+function loadRememberedCredentials(): RememberedCredentials | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RememberedCredentials>;
+    if (typeof parsed.email === "string" && typeof parsed.password === "string") {
+      return { email: parsed.email, password: parsed.password };
+    }
+  } catch {
+    /* localStorage no disponible o dato corrupto: se ignora */
+  }
+  return null;
+}
+
+function saveRememberedCredentials(creds: RememberedCredentials | null): void {
+  try {
+    if (creds) localStorage.setItem(REMEMBER_KEY, JSON.stringify(creds));
+    else localStorage.removeItem(REMEMBER_KEY);
+  } catch {
+    /* sin localStorage: simplemente no se recuerda */
+  }
+}
+
 export function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = loadRememberedCredentials();
+    if (saved) {
+      setEmail(saved.email);
+      setPassword(saved.password);
+      setRemember(true);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -25,6 +72,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
+      saveRememberedCredentials(remember ? { email, password } : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
     } finally {
@@ -159,6 +207,16 @@ export function LoginPage() {
                 {resetting ? "Enviando…" : "¿Olvidaste tu contraseña?"}
               </button>
             </div>
+
+            <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              Recordar usuario y contraseña en este equipo
+            </label>
 
             {error && (
               <div className="rounded-md border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">
