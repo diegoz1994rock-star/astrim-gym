@@ -302,6 +302,14 @@
   .clients-details[open] summary::before { transform: rotate(90deg); }
   .clients-details summary:hover { color: var(--text); }
   .clients-details .pass-row { margin: 6px 0; }
+  /* Sección "Clientes con cuenta en la app": el nombre y el correo deben verse
+     en horizontal. La columna de info ocupa el ancho disponible (mínimo ~12rem)
+     y, si los botones no caben al lado, bajan a la línea siguiente en vez de
+     exprimir el texto hasta partirlo letra por letra. */
+  .clients-details .pass-row { flex-wrap: wrap; }
+  .clients-details .pass-row > div:first-child { flex: 1 1 12rem; min-width: 0; }
+  .clients-details .pass-row .lbl { display: block; overflow-wrap: anywhere; }
+  .clients-details .pass-actions { flex: 1 1 auto; }
   .clients-none { font-size: 12px; color: var(--subtle); padding: 2px 0; }
 
   .gc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -949,7 +957,7 @@
     return el("div", { class: "pass-row" },
       el("div", { style: "min-width:0" },
         name ? el("div", { class: "lbl" }, name) : "",
-        el("div", { style: "font-size:13px;color:var(--text);word-break:break-all" }, c.email || "—"),
+        el("div", { style: "font-size:13px;color:var(--text);overflow-wrap:anywhere" }, c.email || "—"),
         pass
           ? el("span", { class: "pass-val" }, shown ? pass : "•".repeat(Math.min(pass.length, 14)))
           : el("div", { class: "pass-none" }, "contraseña no guardada"),
