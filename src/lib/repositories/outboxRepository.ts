@@ -117,7 +117,7 @@ export async function listFailed(limit = 20): Promise<FailedOutboxItem[]> {
     `SELECT * FROM outbox
      WHERE status = 'FAILED'
         OR (status = 'PENDING' AND (attempts > 0 OR last_error IS NOT NULL))
-     ORDER BY status DESC, attempts DESC, enqueued_at DESC
+     ORDER BY status ASC, attempts DESC, enqueued_at DESC
      LIMIT $1`,
     [limit],
   );
