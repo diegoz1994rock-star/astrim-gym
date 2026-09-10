@@ -2,6 +2,7 @@ import * as clientRepository from "../repositories/clientRepository";
 import * as attendanceRepository from "../repositories/attendanceRepository";
 import { evaluateAccess } from "../domain/accessAuthorization";
 import { isValidAttendanceCode } from "../domain/attendanceCode";
+import { emitAttendanceChanged } from "../events/attendanceEvents";
 import { LocalSyncProvider } from "../sync/LocalSyncProvider";
 import type { SyncProvider } from "../sync/SyncProvider";
 import type { MembershipStatus } from "../domain/membershipStatus";
@@ -94,6 +95,7 @@ async function resolveAndRegister(
         deviceId,
         eventType: "ENTRY",
       });
+      emitAttendanceChanged();
       return {
         kind: "ENTRY_ALLOWED",
         clientName: client!.name,
@@ -110,6 +112,7 @@ async function resolveAndRegister(
         deviceId,
         eventType: "EXIT",
       });
+      emitAttendanceChanged();
       return {
         kind: "EXIT_ALLOWED",
         clientName: client!.name,
