@@ -221,6 +221,13 @@ private fun Content(
 
         Spacer(Modifier.height(20.dp))
         AstrimOutlineButton("Cerrar sesión", onLogout, modifier = Modifier.fillMaxWidth())
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "© ${java.time.Year.now().value} ASTRIM — Todos los derechos reservados",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(BottomBarSpace))
     }
 }

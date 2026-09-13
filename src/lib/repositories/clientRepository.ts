@@ -265,7 +265,7 @@ export async function getClientsWithLowAttendance(
   const db = await getDb();
   return db.select<LowAttendanceClientRow[]>(
     `SELECT c.id, c.name,
-       CAST(julianday(date('now')) - julianday(COALESCE(
+       CAST(julianday(date('now', 'localtime')) - julianday(COALESCE(
          (SELECT MAX(a.date) FROM attendance a WHERE a.client_id = c.id AND a.gym_id = c.gym_id),
          c.join_date
        )) AS INTEGER) AS days_without_attendance
@@ -274,7 +274,7 @@ export async function getClientsWithLowAttendance(
        AND COALESCE(
          (SELECT MAX(a.date) FROM attendance a WHERE a.client_id = c.id AND a.gym_id = c.gym_id),
          c.join_date
-       ) <= date('now', '-' || $2 || ' days')
+       ) <= date('now', 'localtime', '-' || $2 || ' days')
      ORDER BY days_without_attendance DESC`,
     [gymId, thresholdDays],
   );

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import * as clientService from "@/lib/services/clientService";
 import * as attendanceService from "@/lib/services/attendanceService";
 import { filterAttendance } from "@/lib/domain/attendanceFilters";
+import { onAttendanceChanged } from "@/lib/events/attendanceEvents";
 import { formatDate } from "@/lib/format";
 import {
   ATTENDANCE_METHOD_LABELS,
@@ -23,7 +24,9 @@ import { AttendanceCheckInModal } from "./AttendanceCheckInModal";
 import { AttendanceDetailModal } from "./AttendanceDetailModal";
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Fecha local del equipo (no UTC): así coincide con la columna `date` de
+  // asistencia, que ahora también se guarda en hora local.
+  return new Date().toLocaleDateString("en-CA");
 }
 
 export function AttendancePage() {
@@ -73,6 +76,10 @@ export function AttendancePage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Cuando alguien marca en la app de asistencia (por LAN) o en el kiosco,
+  // accessService emite este aviso y la tabla se recarga sola.
+  useEffect(() => onAttendanceChanged(() => void loadData()), [loadData]);
 
   const todayAttendance = useMemo(() => {
     const today = todayIso();
