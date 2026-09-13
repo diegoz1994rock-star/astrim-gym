@@ -129,7 +129,7 @@ export function LoginPage() {
         </motion.div>
 
         <p className="relative text-sm text-white/55">
-          © {new Date().getFullYear()} ASTRIM GYM — Panel administrativo
+          © {new Date().getFullYear()} ASTRIM — Todos los derechos reservados
         </p>
       </div>
 

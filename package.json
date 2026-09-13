@@ -2,6 +2,8 @@
   "name": "astrim-gym",
   "private": true,
   "version": "0.1.0",
+  "author": "ASTRIM",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",
