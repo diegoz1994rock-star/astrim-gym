@@ -3,40 +3,50 @@ package com.astrimgym.cliente.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Paleta base oscura/premium, fija (no depende del gimnasio). Un solo lugar
- * para todos los colores de la app — ninguna pantalla define Color(...) a
- * mano. La identidad de cada gimnasio vive solo en el acento (gyms.brandColor)
- * y su logo; el resto de la base es siempre esta.
+ * ASTRIM GYM PERFORMANCE — paleta oficial. Un solo lugar para todos los
+ * colores de la app: ninguna pantalla define Color(0x...) a mano.
+ *
+ * Reglas de uso:
+ *  - Los tonos oscuros y el espacio negativo dominan.
+ *  - El lima es la firma de ASTRIM: acción principal, progreso activo,
+ *    selección y datos clave. Nunca para decorar todo.
+ *  - Verde = éxito/finalización. Rojo = error/atención. Azul = información.
  */
 
 // --- Superficies (de más al fondo a más elevado) ---
-val Ink            = Color(0xFF0A0B0D) // fondo de la app (negro/charcoal)
-val InkRaised      = Color(0xFF0F1013) // fondo de zonas inmersivas
-val SurfaceCard    = Color(0xFF15171B) // tarjeta estándar
-val SurfaceCardHi  = Color(0xFF1D2025) // tarjeta elevada / hero
-val SurfaceInput   = Color(0xFF1A1C21) // campos de texto, steppers
-val SurfacePressed = Color(0xFF262A31) // feedback de pulsación
+val Ink            = Color(0xFF090A0C) // fondo principal
+val SurfaceCard    = Color(0xFF111317) // superficie principal (tarjetas)
+val SurfaceCardMid = Color(0xFF171A1F) // superficie secundaria (campos, steppers)
+val SurfaceCardHi  = Color(0xFF1D2127) // superficie elevada (hero, botones secundarios)
+val SurfacePressed = Color(0xFF242930) // feedback de pulsación / deshabilitado
 
 // --- Líneas ---
-val HairlineSoft   = Color(0x14FFFFFF) // 8% blanco — bordes sutiles
-val HairlineStrong = Color(0x24FFFFFF) // 14% blanco — bordes marcados
+val Hairline       = Color(0xFF292E35) // borde discreto
+val HairlineSoft   = Color(0xFF1E2228) // separadores internos
 
 // --- Texto ---
-val TextPrimary    = Color(0xFFF4F5F7)
-val TextSecondary  = Color(0xFF9AA0A9)
-val TextTertiary   = Color(0xFF666B74)
+val TextPrimary    = Color(0xFFF5F6F7)
+val TextSecondary  = Color(0xFFA0A6B0)
+val TextTertiary   = Color(0xFF737B87)
 
-// --- Acento por defecto (verde) ---
-// Se usa mientras /me todavía no cargó gyms.brandColor del gimnasio real.
-val DefaultAccent  = Color(0xFF2BE07C)
+// --- Acento ASTRIM (lima) ---
+val Lime           = Color(0xFFD9E66C)
+val LimeBright     = Color(0xFFF0F58B)
+val LimeDeep       = Color(0xFFA9B544)
+/** Texto/íconos sobre relleno lima. */
+val OnLime         = Color(0xFF14160A)
 
 // --- Semánticos ---
-val Danger         = Color(0xFFFF5A63)
-val Warning        = Color(0xFFF5B546)
-val Positive       = Color(0xFF2BE07C)
-val ClassBlue      = Color(0xFF4C8DFF) // días con clase programada en el calendario
+val Positive       = Color(0xFF62D994) // éxito / completado
+val Danger         = Color(0xFFFF666D) // error / alerta
+val Info           = Color(0xFF70B7FF) // información complementaria
+val Warning        = Color(0xFFF2B95C) // vence pronto, avisos suaves
 
-// Compat: nombres antiguos usados en algún punto del árbol.
-val SurfaceBackground = Ink
-val SurfaceCardElevated = SurfaceCardHi
-val Divider = HairlineStrong
+/** Fondo de las capas modales (pausa, confirmaciones). */
+val Scrim          = Color(0xFA090A0C)
+
+/** El acento por defecto de la app. Fijo: la identidad es ASTRIM. */
+val DefaultAccent  = Lime
+
+// Compat: nombres usados en algún punto del árbol.
+val ClassBlue = Info

@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,8 +67,8 @@ fun MealPlanChooserScreen(
                 if (current.plans.isEmpty()) {
                     EmptyState(
                         title = "Sin plan asignado",
-                        message = "No tenés un plan de alimentación asignado todavía.",
-                        glyph = "◇",
+                        message = "Tu plan de alimentación aparecerá aquí cuando tu entrenador lo asigne.",
+                        icon = androidx.compose.material.icons.Icons.Outlined.Restaurant,
                     )
                 } else {
                     LazyColumn(

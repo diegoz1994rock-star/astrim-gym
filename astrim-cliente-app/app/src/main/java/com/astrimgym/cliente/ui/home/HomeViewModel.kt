@@ -1,11 +1,9 @@
 package com.astrimgym.cliente.ui.home
 
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.astrimgym.cliente.data.repository.HomeData
 import com.astrimgym.cliente.data.repository.HomeRepository
-import com.astrimgym.cliente.ui.theme.DefaultAccent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,15 +34,5 @@ class HomeViewModel(private val homeRepository: HomeRepository) : ViewModel() {
                     )
                 }
         }
-    }
-}
-
-/** gyms.brandColor llega como "#RRGGBB"; si falta o es inválido, se usa el acento por defecto. */
-fun parseBrandColor(hex: String?): Color {
-    if (hex.isNullOrBlank()) return DefaultAccent
-    return try {
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (_: IllegalArgumentException) {
-        DefaultAccent
     }
 }

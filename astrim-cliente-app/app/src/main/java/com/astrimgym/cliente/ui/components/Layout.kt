@@ -1,69 +1,80 @@
 package com.astrimgym.cliente.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.astrimgym.cliente.ui.theme.TextSecondary
 
 /** Espacio libre al pie de las tabs para que la barra inferior no tape contenido. */
-val BottomBarSpace = 100.dp
+val BottomBarSpace = 104.dp
 
 /**
- * Cabecera consistente para pantallas de detalle: botón "atrás" circular,
- * título en Space Grotesk y un slot de acción opcional a la derecha.
+ * Cabecera de pantalla.
+ *  - Sin `onBack` (tabs): título grande de sección + subtítulo opcional.
+ *  - Con `onBack` (detalle): botón atrás circular de 48 dp + título compacto.
  */
 @Composable
 fun ScreenHeader(
     title: String,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(
+                start = if (onBack != null) 12.dp else 20.dp,
+                end = 16.dp,
+                top = if (onBack != null) 8.dp else 16.dp,
+                bottom = if (onBack != null) 8.dp else 12.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            val haptics = rememberHaptics()
-            Icon(
+            AstrimIconButton(
                 Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Volver",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable { haptics.tick(); onBack() }
-                    .padding(8.dp),
+                onClick = onBack,
+                sound = null,
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
         }
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = if (onBack != null) MaterialTheme.typography.headlineSmall
+                else MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = if (onBack != null) 1 else 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() },
+            )
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         if (trailing != null) {
             Spacer(Modifier.width(8.dp))
             trailing()

@@ -1,6 +1,8 @@
 package com.astrimgym.cliente.ui.agenda
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +22,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +48,7 @@ import com.astrimgym.cliente.ui.common.ViewModelFactory
 import com.astrimgym.cliente.ui.components.AstrimCard
 import com.astrimgym.cliente.ui.components.BottomBarSpace
 import com.astrimgym.cliente.ui.components.ErrorState
+import com.astrimgym.cliente.ui.components.IconTile
 import com.astrimgym.cliente.ui.components.Eyebrow
 import com.astrimgym.cliente.ui.components.LoadingState
 import com.astrimgym.cliente.ui.components.ScreenHeader
@@ -64,7 +74,7 @@ fun AgendaScreen(agendaRepository: AgendaRepository) {
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        ScreenHeader(title = "Clases y Sesiones")
+        ScreenHeader(title = "Clases", subtitle = "Tu semana en el gimnasio")
         when (val s = state) {
             is AgendaUiState.Loading -> LoadingState()
             is AgendaUiState.Error -> ErrorState(s.message, onRetry = viewModel::refresh)
@@ -87,53 +97,172 @@ private fun AgendaContent(
     onSelectDay: (LocalDate) -> Unit,
     onMonth: (Long) -> Unit,
 ) {
+    var showMonth by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
-        Spacer(Modifier.height(4.dp))
-        AstrimCard(modifier = Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-            MonthCalendar(data, month, selected, onSelectDay, onMonth)
-        }
-
+        // 1) Semana (lo que más se consulta): días con clase / entrenados.
+        WeekSelector(data, selected, onSelectDay)
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            LegendDot(ClassBlue, "Clase programada")
+            LegendDot(ClassBlue, "Clase")
             Spacer(Modifier.size(16.dp))
-            LegendDot(LocalAstrimAccent.current.base, "Día que entrenaste")
+            LegendDot(LocalAstrimAccent.current.base, "Entrenaste")
         }
 
-        if (data.classes.isEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Cuando tu gimnasio te inscriba en una clase, el día aparece marcado en azul acá.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
+        // 2) Detalle del día elegido.
+        Spacer(Modifier.height(20.dp))
         DayDetail(data, selected)
 
+        // 3) Próximas actividades.
         val upcoming = data.upcomingClasses(LocalDate.now())
-        if (upcoming.isNotEmpty()) {
-            Spacer(Modifier.height(20.dp))
-            Eyebrow("Clases programadas")
-            Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(24.dp))
+        Eyebrow("Próximas clases")
+        Spacer(Modifier.height(10.dp))
+        if (upcoming.isEmpty()) {
+            AstrimCard(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconTile(Icons.Outlined.EventBusy, tint = ClassBlue)
+                    Spacer(Modifier.size(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("No tenés clases programadas", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Cuando tu gimnasio te inscriba en una clase, aparece acá y marcada en azul.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        } else {
             upcoming.forEach { c ->
                 ClassRow(
                     title = c.name,
                     time = c.startTime,
-                    dateLabel = c.date.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", ES))
-                        .replaceFirstChar { it.uppercase() },
+                    dateLabel = relativeDay(c.date),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 )
             }
         }
 
+        // 4) Mes completo, plegado: no domina la pantalla.
+        Spacer(Modifier.height(14.dp))
+        AstrimCard(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            onClick = { showMonth = !showMonth },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.size(10.dp))
+                Text(
+                    if (showMonth) "Ocultar calendario del mes" else "Ver calendario del mes",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    if (showMonth) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AnimatedVisibility(visible = showMonth) {
+                Column {
+                    Spacer(Modifier.height(14.dp))
+                    MonthCalendar(data, month, selected, onSelectDay, onMonth)
+                }
+            }
+        }
+
         Spacer(Modifier.height(BottomBarSpace))
+    }
+}
+
+/**
+ * Selector semanal (lun–dom) de la semana del día elegido, con flechas para
+ * cambiar de semana. Día elegido en lima; hoy con contorno; punto azul =
+ * clase, punto lima = entrenaste.
+ */
+@Composable
+private fun WeekSelector(data: AgendaData, selected: LocalDate, onSelectDay: (LocalDate) -> Unit) {
+    val accent = LocalAstrimAccent.current
+    val haptics = rememberHaptics()
+    val today = LocalDate.now()
+    val monday = selected.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+    val sunday = monday.plusDays(6)
+    val range = if (monday.month == sunday.month) {
+        "${monday.dayOfMonth} – ${sunday.dayOfMonth} ${sunday.month.getDisplayName(TextStyle.FULL, ES)}"
+    } else {
+        "${monday.dayOfMonth} ${monday.month.getDisplayName(TextStyle.SHORT, ES)} – ${sunday.dayOfMonth} ${sunday.month.getDisplayName(TextStyle.SHORT, ES)}"
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Eyebrow(if (!today.isBefore(monday) && !today.isAfter(sunday)) "Esta semana" else "Semana")
+            Text(range, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        }
+        NavArrow(Icons.Rounded.ChevronLeft, "Semana anterior") { haptics.tick(); onSelectDay(selected.minusWeeks(1)) }
+        Spacer(Modifier.size(8.dp))
+        NavArrow(Icons.Rounded.ChevronRight, "Semana siguiente") { haptics.tick(); onSelectDay(selected.plusWeeks(1)) }
+    }
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (i in 0..6) {
+            val date = monday.plusDays(i.toLong())
+            val isSel = date == selected
+            val isToday = date == today
+            val hasClass = date in data.classDays
+            val trained = date in data.workoutDays
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(com.astrimgym.cliente.ui.theme.Radii.tile)
+                    .background(if (isSel) accent.base else MaterialTheme.colorScheme.surface)
+                    .border(
+                        1.dp,
+                        if (isSel || isToday) accent.base else MaterialTheme.colorScheme.outline,
+                        com.astrimgym.cliente.ui.theme.Radii.tile,
+                    )
+                    .clickable { haptics.tick(); onSelectDay(date) }
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    date.dayOfWeek.getDisplayName(TextStyle.SHORT, ES).take(3).replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSel) accent.onAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    date.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isSel) accent.onAccent else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (isSel || isToday) FontWeight.Bold else FontWeight.Medium,
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Dot(if (hasClass) (if (isSel) accent.onAccent else ClassBlue) else androidx.compose.ui.graphics.Color.Transparent)
+                    if (trained) Dot(if (isSel) accent.onAccent else accent.base)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Dot(color: androidx.compose.ui.graphics.Color) {
+    Box(Modifier.size(5.dp).clip(CircleShape).background(color))
+}
+
+private fun relativeDay(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Hoy"
+        today.plusDays(1) -> "Mañana"
+        else -> date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMM", ES)).replaceFirstChar { it.uppercase() }
     }
 }
 
@@ -292,7 +421,8 @@ private fun DayDetail(data: AgendaData, day: LocalDate) {
     if (classes.isEmpty() && workouts.isEmpty()) {
         AstrimCard(modifier = Modifier.fillMaxWidth()) {
             Text(
-                "Nada agendado este día.",
+                if (day == LocalDate.now()) "Hoy no tenés clases. Buen día para tu rutina."
+                else "Sin clases ni entrenamientos este día.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -311,9 +441,9 @@ private fun DayDetail(data: AgendaData, day: LocalDate) {
     workouts.forEach { w ->
         AstrimCard(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
             Text(
-                "ENTRENAMIENTO",
+                "ENTRENAMIENTO REGISTRADO",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = LocalAstrimAccent.current.base,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -345,14 +475,14 @@ private fun ClassRow(title: String, time: String?, dateLabel: String?, modifier:
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(52.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(ClassBlue.copy(alpha = 0.16f)),
+                    .background(ClassBlue.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     time?.take(5) ?: "—",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.titleSmall,
                     color = ClassBlue,
                     fontWeight = FontWeight.Bold,
                 )
@@ -377,10 +507,10 @@ private fun NavArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, cd: 
         contentDescription = cd,
         tint = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
-            .size(36.dp)
+            .size(44.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick)
-            .padding(6.dp),
+            .padding(10.dp),
     )
 }

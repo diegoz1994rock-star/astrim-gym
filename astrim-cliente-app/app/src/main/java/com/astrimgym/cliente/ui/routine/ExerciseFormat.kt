@@ -45,3 +45,46 @@ fun RoutineExerciseDoc.restLine(): String? {
 
 private fun trimNumber(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+
+/** true = ejercicio por tiempo (cardio/movilidad). Misma regla que WorkoutRepository. */
+val RoutineExerciseDoc.isCardio: Boolean get() = timeValue != null && sets == null
+
+/** Segundos de trabajo de una serie de fuerza para estimar duración (supuesto: ~3 s por rep, mín. 30 s). */
+private const val SECONDS_PER_REP = 3
+private const val MIN_SET_SECONDS = 30
+
+/**
+ * Duración estimada en minutos de una rutina, con las mismas reglas del Modo
+ * Entrenamiento: descansos prescritos (o 60 s por defecto) entre series y
+ * 2 min entre ejercicios. Es una estimación: se muestra siempre con "≈".
+ * Devuelve null si no hay datos suficientes para estimar.
+ */
+fun estimateRoutineMinutes(
+    exercises: List<RoutineExerciseDoc>,
+    defaultRestSeconds: Int = 60,
+    betweenExercisesSeconds: Int = 120,
+): Int? {
+    if (exercises.isEmpty()) return null
+    var total = 0L
+    exercises.forEachIndexed { i, e ->
+        if (e.isCardio) {
+            val t = e.timeValue ?: 0.0
+            total += when (e.timeUnit) {
+                "HOURS", "h" -> (t * 3600).toLong()
+                "SECONDS", "s" -> t.toLong()
+                else -> (t * 60).toLong()
+            }
+        } else {
+            val sets = (e.sets ?: 1L).coerceAtLeast(1L)
+            val work = maxOf(MIN_SET_SECONDS.toLong(), (e.reps ?: 10L) * SECONDS_PER_REP)
+            val rest = (e.restSeconds ?: defaultRestSeconds.toLong()).coerceAtLeast(0L)
+            total += sets * work + (sets - 1) * rest
+        }
+        if (i < exercises.lastIndex) total += betweenExercisesSeconds
+    }
+    return ((total + 59) / 60).toInt().takeIf { it > 0 }
+}
+
+/** Total de series de fuerza de la rutina. */
+fun totalStrengthSets(exercises: List<RoutineExerciseDoc>): Int =
+    exercises.filterNot { it.isCardio }.sumOf { (it.sets ?: 1L).toInt().coerceAtLeast(1) }

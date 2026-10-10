@@ -23,7 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -55,6 +57,7 @@ import com.astrimgym.cliente.data.repository.ProfileData
 import com.astrimgym.cliente.data.repository.ProfileRepository
 import com.astrimgym.cliente.ui.common.ViewModelFactory
 import com.astrimgym.cliente.ui.components.AstrimCard
+import com.astrimgym.cliente.ui.components.HairlineDivider
 import com.astrimgym.cliente.ui.components.AstrimOutlineButton
 import com.astrimgym.cliente.ui.components.BottomBarSpace
 import com.astrimgym.cliente.ui.components.ErrorState
@@ -62,6 +65,7 @@ import com.astrimgym.cliente.ui.components.Eyebrow
 import com.astrimgym.cliente.ui.components.LoadingState
 import com.astrimgym.cliente.ui.components.ScreenHeader
 import com.astrimgym.cliente.ui.theme.Danger
+import com.astrimgym.cliente.ui.theme.Positive
 import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
 import com.astrimgym.cliente.ui.theme.Warning
 import com.google.firebase.auth.ktx.auth
@@ -216,11 +220,20 @@ private fun Content(
             BodyMeasurementsCard(client)
         }
 
-        Spacer(Modifier.height(24.dp))
-        SoundSettingsCard()
+        Spacer(Modifier.height(28.dp))
+        Eyebrow("Preferencias", modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(10.dp))
+        FeedbackSettingsCard()
 
-        Spacer(Modifier.height(20.dp))
-        AstrimOutlineButton("Cerrar sesión", onLogout, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(28.dp))
+        Eyebrow("Cuenta", modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(10.dp))
+        AstrimOutlineButton(
+            "Cerrar sesión", onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            danger = true,
+            icon = Icons.AutoMirrored.Rounded.Logout,
+        )
 
         Spacer(Modifier.height(16.dp))
         Text(
@@ -232,42 +245,34 @@ private fun Content(
     }
 }
 
+/** Sonidos y vibración del Modo Entrenamiento (se guardan en el teléfono). */
 @Composable
-private fun SoundSettingsCard() {
+private fun FeedbackSettingsCard() {
     val sounds = rememberSounds()
     val accent = LocalAstrimAccent.current
+    val switchColors = SwitchDefaults.colors(
+        checkedThumbColor = accent.onAccent,
+        checkedTrackColor = accent.base,
+        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+    )
     AstrimCard(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Rounded.VolumeUp,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.size(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Sonidos", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    "Efectos del modo entrenamiento",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = sounds.enabled,
-                onCheckedChange = { sounds.updateEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = accent.onAccent,
-                    checkedTrackColor = accent.base,
-                ),
-            )
-        }
+        SettingRow(
+            icon = Icons.Rounded.VolumeUp,
+            title = "Sonidos",
+            subtitle = "Inicio, cuenta regresiva, series y final",
+            checked = sounds.enabled,
+            onChecked = { sounds.updateEnabled(it) },
+            colors = switchColors,
+        )
         if (sounds.enabled) {
             Spacer(Modifier.height(6.dp))
             Text(
-                "Volumen",
-                style = MaterialTheme.typography.labelMedium,
+                "VOLUMEN",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 34.dp),
             )
             Slider(
                 value = sounds.volume,
@@ -276,14 +281,46 @@ private fun SoundSettingsCard() {
                 colors = SliderDefaults.colors(
                     thumbColor = accent.base,
                     activeTrackColor = accent.base,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 ),
-            )
-            Text(
-                "Se apagan solos si el teléfono está en silencio.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 26.dp),
             )
         }
+        HairlineDivider(Modifier.padding(vertical = 8.dp))
+        SettingRow(
+            icon = Icons.Rounded.Vibration,
+            title = "Vibración",
+            subtitle = "Avisos al terminar el descanso y en los botones",
+            checked = sounds.hapticsEnabled,
+            onChecked = { sounds.updateHaptics(it) },
+            colors = switchColors,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Los sonidos se apagan solos si el teléfono está en silencio.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SettingRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+    colors: androidx.compose.material3.SwitchColors,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChecked, colors = colors)
     }
 }
 
@@ -291,12 +328,12 @@ private fun SoundSettingsCard() {
 private fun MembershipCard(m: MembershipView) {
     val accent = LocalAstrimAccent.current
     val stateColor = when (m.state) {
-        MembershipState.ACTIVE -> accent.base
+        MembershipState.ACTIVE -> Positive
         MembershipState.EXPIRING_SOON -> Warning
         MembershipState.NONE -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> Danger
     }
-    AstrimCard(modifier = Modifier.fillMaxWidth(), hero = m.state == MembershipState.ACTIVE) {
+    AstrimCard(modifier = Modifier.fillMaxWidth(), hero = true) {
         Eyebrow("Mi membresía")
         Spacer(Modifier.height(10.dp))
         if (m.state == MembershipState.NONE) {

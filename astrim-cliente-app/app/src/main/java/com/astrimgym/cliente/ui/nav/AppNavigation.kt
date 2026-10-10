@@ -1,26 +1,35 @@
 package com.astrimgym.cliente.ui.nav
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.Icon
@@ -34,16 +43,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.astrimgym.cliente.data.AppContainer
+import com.astrimgym.cliente.ui.agenda.AgendaScreen
 import com.astrimgym.cliente.ui.components.pressableNoRipple
 import com.astrimgym.cliente.ui.components.rememberHaptics
-import com.astrimgym.cliente.ui.agenda.AgendaScreen
 import com.astrimgym.cliente.ui.home.HomeScreen
 import com.astrimgym.cliente.ui.mealplan.MealPlanChooserScreen
 import com.astrimgym.cliente.ui.mealplan.MealPlanDetailScreen
@@ -54,19 +69,22 @@ import com.astrimgym.cliente.ui.routine.ExerciseDetailScreen
 import com.astrimgym.cliente.ui.routine.RoutineDetailScreen
 import com.astrimgym.cliente.ui.routine.RoutineListScreen
 import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
+import com.astrimgym.cliente.ui.theme.Motion
+import com.astrimgym.cliente.ui.theme.TextTertiary
 import com.astrimgym.cliente.ui.workout.WorkoutModeScreen
 
 private enum class Tab(
     val route: String,
     val label: String,
     val icon: ImageVector,
+    val selectedIcon: ImageVector,
 ) {
-    HOME("home", "Inicio", Icons.Rounded.Home),
-    ROUTINE("routine", "Rutina", Icons.Rounded.FitnessCenter),
-    MEALPLAN("mealplan", "Alimentación", Icons.Rounded.Restaurant),
-    CALENDAR("calendar", "Clases", Icons.Rounded.CalendarMonth),
-    PROGRESS("progress", "Progreso", Icons.Rounded.BarChart),
-    PROFILE("profile", "Perfil", Icons.Rounded.Person),
+    HOME("home", "Inicio", Icons.Outlined.Home, Icons.Rounded.Home),
+    ROUTINE("routine", "Rutina", Icons.Outlined.FitnessCenter, Icons.Rounded.FitnessCenter),
+    MEALPLAN("mealplan", "Nutrición", Icons.Outlined.Restaurant, Icons.Rounded.Restaurant),
+    CALENDAR("calendar", "Clases", Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
+    PROGRESS("progress", "Progreso", Icons.Outlined.Insights, Icons.Rounded.Insights),
+    PROFILE("profile", "Perfil", Icons.Outlined.Person, Icons.Rounded.Person),
 }
 
 private val TAB_ROUTES = Tab.entries.map { it.route }.toSet()
@@ -76,25 +94,37 @@ private val TAB_ROUTES = Tab.entries.map { it.route }.toSet()
  * pantallas de detalle y el Modo Entrenamiento son de pantalla completa.
  */
 @Composable
-fun AppNavigation(
-    container: AppContainer,
-    onAccentColorResolved: (Color) -> Unit,
-) {
+fun AppNavigation(container: AppContainer) {
     val navController: NavHostController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    Box(Modifier.fillMaxWidth()) {
+    fun goToTab(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         NavHost(
             navController = navController,
             startDestination = Tab.HOME.route,
+            enterTransition = { fadeIn(tween(Motion.SCREEN)) },
+            exitTransition = { fadeOut(tween(Motion.SCREEN / 2)) },
+            popEnterTransition = { fadeIn(tween(Motion.SCREEN)) },
+            popExitTransition = { fadeOut(tween(Motion.SCREEN / 2)) },
         ) {
             composable(Tab.HOME.route) {
                 HomeScreen(
                     homeRepository = container.homeRepository,
-                    onAccentColorResolved = onAccentColorResolved,
                     onStartWorkout = { routineId -> navController.navigate("workout/$routineId") },
-                    onOpenRoutines = { navController.navigate(Tab.ROUTINE.route) },
+                    onOpenRoutines = { goToTab(Tab.ROUTINE.route) },
+                    onOpenClasses = { goToTab(Tab.CALENDAR.route) },
+                    onOpenProgress = { goToTab(Tab.PROGRESS.route) },
+                    onOpenMealPlan = { goToTab(Tab.MEALPLAN.route) },
+                    onOpenProfile = { goToTab(Tab.PROFILE.route) },
                 )
             }
             composable(Tab.ROUTINE.route) {
@@ -187,15 +217,7 @@ fun AppNavigation(
         if (currentRoute in TAB_ROUTES) {
             AstrimBottomBar(
                 current = currentRoute,
-                onSelect = { route ->
-                    if (currentRoute != route) {
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                },
+                onSelect = { route -> if (currentRoute != route) goToTab(route) },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -203,9 +225,10 @@ fun AppNavigation(
 }
 
 /**
- * Barra inferior propia. Fondo translúcido con separador hairline, ítem
- * activo con "píldora" de acento que se desliza (spring), ícono relleno +
- * etiqueta que aparece solo en el activo, y háptico al cambiar.
+ * Barra inferior ASTRIM: fondo oscuro sólido con separador fino, seis
+ * destinos de ancho fijo (nada se desplaza al cambiar), ícono + etiqueta
+ * siempre visibles. Activo = ícono relleno + etiqueta en lima + indicador
+ * corto arriba. Respeta la barra de navegación del sistema.
  */
 @Composable
 private fun AstrimBottomBar(
@@ -215,68 +238,74 @@ private fun AstrimBottomBar(
 ) {
     val accent = LocalAstrimAccent.current
     val haptics = rememberHaptics()
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant),
+                .background(MaterialTheme.colorScheme.outline),
         )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
                 .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Tab.entries.forEach { tab ->
                 val selected = current == tab.route
                 val interaction = remember { MutableInteractionSource() }
-                val bg by animateColorAsState(
-                    if (selected) accent.soft else Color.Transparent,
-                    label = "navBg",
-                )
                 val tint by animateColorAsState(
-                    if (selected) accent.base else MaterialTheme.colorScheme.onSurfaceVariant,
+                    if (selected) accent.base else TextTertiary,
+                    animationSpec = tween(Motion.CARD),
                     label = "navTint",
                 )
-                val iconSize by animateDpAsState(
-                    if (selected) 24.dp else 23.dp,
-                    animationSpec = spring(dampingRatio = 0.4f, stiffness = 700f),
-                    label = "navIcon",
+                val indicator by animateColorAsState(
+                    if (selected) accent.base else Color.Transparent,
+                    animationSpec = tween(Motion.CARD),
+                    label = "navIndicator",
                 )
-                Row(
+                Column(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(bg)
+                        .weight(1f)
+                        .heightIn(min = 64.dp)
                         .pressableNoRipple(interaction = interaction) {
                             if (!selected) haptics.tick()
                             onSelect(tab.route)
                         }
-                        .padding(horizontal = if (selected) 16.dp else 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .semantics {
+                            role = Role.Tab
+                            this.selected = selected
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    Box(
+                        Modifier
+                            .width(24.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
+                            .background(indicator),
+                    )
+                    Spacer(Modifier.height(9.dp))
                     Icon(
-                        tab.icon,
-                        contentDescription = tab.label,
+                        if (selected) tab.selectedIcon else tab.icon,
+                        contentDescription = null,
                         tint = tint,
-                        modifier = Modifier.size(iconSize),
+                        modifier = Modifier.size(24.dp),
                     )
-                    val labelWidth by animateFloatAsState(
-                        if (selected) 1f else 0f, label = "navLabel",
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        tab.label,
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp, fontSize = 11.sp),
+                        color = tint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    if (labelWidth > 0.01f) {
-                        Text(
-                            tab.label,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = tint,
-                            modifier = Modifier
-                                .padding(start = (6 * labelWidth).dp)
-                                .then(Modifier),
-                        )
-                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }

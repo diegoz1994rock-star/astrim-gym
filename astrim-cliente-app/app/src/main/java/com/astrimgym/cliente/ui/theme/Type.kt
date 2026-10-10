@@ -15,9 +15,10 @@ import com.astrimgym.cliente.R
  * Sistema tipográfico de la app. Dos familias, ambas variables y
  * empaquetadas en res/font (sin dependencias):
  *
- *  - Space Grotesk → títulos, números grandes (contador de descanso, peso,
- *    "EJERCICIO 1 DE 4"). Da el carácter técnico/futurista.
- *  - Inter → todo el texto de cuerpo y etiquetas. Máxima legibilidad.
+ *  - Space Grotesk → títulos (nombre de ejercicio, de rutina, encabezados).
+ *    Da el carácter técnico/deportivo.
+ *  - Inter → cuerpo, etiquetas y TODOS los números grandes (cronómetros,
+ *    peso, métricas) con cifras tabulares.
  *
  * Nada de tipografía manuscrita en ningún lado.
  */
@@ -50,40 +51,46 @@ val Inter = FontFamily(
     inter(FontWeight.Bold),
 )
 
+/** Cifras tabulares: los cronómetros y métricas no "bailan" al cambiar. */
+private const val TNUM = "tnum"
+
 private val evenLineHeight = LineHeightStyle(
     alignment = LineHeightStyle.Alignment.Center,
     trim = LineHeightStyle.Trim.None,
 )
 
 val AstrimTypography = Typography(
-    // Display / números protagonistas (Space Grotesk)
+    // Display / números protagonistas (cronómetros, peso, métricas): Inter con
+    // cifras tabulares. No Space Grotesk: es variable con instancia por
+    // defecto "Light" y en algunos equipos el peso Bold no se aplicaba y los
+    // cronómetros salían finos (visto en el emulador 2026-10-09).
     displayLarge = TextStyle(
-        fontFamily = SpaceGrotesk, fontWeight = FontWeight.Bold,
-        fontSize = 64.sp, lineHeight = 64.sp, letterSpacing = (-1.5).sp,
-        lineHeightStyle = evenLineHeight,
+        fontFamily = Inter, fontWeight = FontWeight.Bold,
+        fontSize = 64.sp, lineHeight = 68.sp, letterSpacing = (-2).sp,
+        lineHeightStyle = evenLineHeight, fontFeatureSettings = TNUM,
     ),
     displayMedium = TextStyle(
-        fontFamily = SpaceGrotesk, fontWeight = FontWeight.Bold,
-        fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-1).sp,
-        lineHeightStyle = evenLineHeight,
+        fontFamily = Inter, fontWeight = FontWeight.Bold,
+        fontSize = 50.sp, lineHeight = 54.sp, letterSpacing = (-1.5).sp,
+        lineHeightStyle = evenLineHeight, fontFeatureSettings = TNUM,
     ),
     displaySmall = TextStyle(
-        fontFamily = SpaceGrotesk, fontWeight = FontWeight.SemiBold,
-        fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp,
-        lineHeightStyle = evenLineHeight,
+        fontFamily = Inter, fontWeight = FontWeight.Bold,
+        fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.8).sp,
+        lineHeightStyle = evenLineHeight, fontFeatureSettings = TNUM,
     ),
     // Headline (Space Grotesk)
     headlineLarge = TextStyle(
         fontFamily = SpaceGrotesk, fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.4).sp,
+        fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = SpaceGrotesk, fontWeight = FontWeight.SemiBold,
-        fontSize = 23.sp, lineHeight = 29.sp, letterSpacing = (-0.3).sp,
+        fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.3).sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = SpaceGrotesk, fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp,
+        fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.2).sp,
     ),
     // Title (Inter)
     titleLarge = TextStyle(
@@ -93,10 +100,12 @@ val AstrimTypography = Typography(
     titleMedium = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.sp,
+        fontFeatureSettings = TNUM,
     ),
     titleSmall = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
+        fontFeatureSettings = TNUM,
     ),
     // Body (Inter)
     bodyLarge = TextStyle(
@@ -118,10 +127,10 @@ val AstrimTypography = Typography(
     ),
     labelMedium = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 1.4.sp,
+        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 1.2.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.Medium,
-        fontSize = 10.sp, lineHeight = 13.sp, letterSpacing = 1.2.sp,
+        fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 1.0.sp,
     ),
 )

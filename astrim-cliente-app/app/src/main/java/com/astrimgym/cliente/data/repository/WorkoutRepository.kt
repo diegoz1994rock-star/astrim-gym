@@ -3,6 +3,7 @@ package com.astrimgym.cliente.data.repository
 import com.astrimgym.cliente.data.ClientSession
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Un ejercicio tal como entra al Modo Entrenamiento. */
 data class WorkoutExercise(
@@ -33,6 +34,38 @@ data class CompletedSet(
     val reps: Int?,
 )
 
+/** Datos visuales de un ejercicio para el Modo Entrenamiento (no bloquean el entrenamiento). */
+data class ExerciseMeta(
+    val muscleGroup: String?,
+    /** Video del gimnasio (gyms/{g}/exerciseVideos). `null` = no cargó ninguno. */
+    val videoUrl: String?,
+)
+
+/** Resultado de guardar una sesión. */
+enum class SaveOutcome {
+    /** El servidor confirmó la escritura. */
+    SYNCED,
+    /**
+     * Sin confirmación del servidor a tiempo (sin red): la escritura quedó en
+     * la cola persistente de Firestore en este teléfono y se sube sola al
+     * volver la conexión.
+     */
+    QUEUED,
+}
+
+/** Contrato que usa el Modo Entrenamiento (permite probar el ViewModel sin Firebase). */
+interface WorkoutDataSource {
+    suspend fun loadExercises(routineId: String): Result<Pair<String, List<WorkoutExercise>>>
+    suspend fun loadExerciseMeta(exerciseId: String): Result<ExerciseMeta>
+    suspend fun saveSession(
+        routineId: String,
+        routineName: String,
+        startedAtMillis: Long,
+        endedAtMillis: Long,
+        sets: List<CompletedSet>,
+    ): Result<SaveOutcome>
+}
+
 /**
  * Carga los ejercicios de una rutina para entrenarla y guarda la sesión
  * terminada en Firestore (`clients/{id}/workoutSessions/{auto}` + subcolección
@@ -43,13 +76,21 @@ class WorkoutRepository(
     private val db: FirebaseFirestore,
     private val session: ClientSession,
     private val routineRepository: RoutineRepository,
-) {
+) : WorkoutDataSource {
     companion object {
         const val DEFAULT_REST_SECONDS = 60
         const val BETWEEN_EXERCISES_SECONDS = 120
+        /** Cuánto esperar la confirmación del servidor antes de reportar "en cola". */
+        private const val SYNC_WAIT_MS = 6_000L
     }
 
-    suspend fun loadExercises(routineId: String): Result<Pair<String, List<WorkoutExercise>>> = runCatching {
+    /** 2–3 lecturas por ejercicio (catálogo + video del gym); el VM las pide de a una y las cachea. */
+    override suspend fun loadExerciseMeta(exerciseId: String): Result<ExerciseMeta> =
+        routineRepository.getExercise(exerciseId).map {
+            ExerciseMeta(com.astrimgym.cliente.data.model.muscleGroupLabel(it.muscleGroup), it.videoPath)
+        }
+
+    override suspend fun loadExercises(routineId: String): Result<Pair<String, List<WorkoutExercise>>> = runCatching {
         val detail = routineRepository.getRoutineDetail(routineId).getOrThrow()
         val exercises = detail.exercises.mapNotNull { e ->
             val id = e.exerciseId ?: return@mapNotNull null
@@ -86,13 +127,13 @@ class WorkoutRepository(
         (detail.routine.name ?: "Entrenamiento") to exercises
     }
 
-    suspend fun saveSession(
+    override suspend fun saveSession(
         routineId: String,
         routineName: String,
         startedAtMillis: Long,
         endedAtMillis: Long,
         sets: List<CompletedSet>,
-    ): Result<Unit> = runCatching {
+    ): Result<SaveOutcome> = runCatching {
         val s = session.require()
         val totalVolume = sets.sumOf { (it.weight ?: 0.0) * (it.reps ?: 0) }
 
@@ -111,7 +152,10 @@ class WorkoutRepository(
                 "endedAt" to endedAtMillis,
                 "durationSeconds" to ((endedAtMillis - startedAtMillis) / 1000),
                 "status" to "COMPLETED",
-                "totalSets" to sets.size,
+                // Series de fuerza (con peso o reps). El cardio se guarda igual en
+                // la subcolección `sets`, pero no cuenta como "serie": así el
+                // historial coincide con el resumen que vio el cliente.
+                "totalSets" to sets.count { it.reps != null || it.weight != null },
                 "totalVolume" to totalVolume,
             ),
         )
@@ -127,6 +171,13 @@ class WorkoutRepository(
                 ),
             )
         }
-        batch.commit().await()
+        // Con persistencia offline el batch se aplica al caché local en el
+        // acto; el Task recién completa cuando el servidor confirma. Sin red
+        // eso puede no pasar nunca durante esta pantalla, así que esperamos
+        // un tiempo prudente y, si no llegó, informamos "en cola" (la
+        // escritura NO se pierde: Firestore la reintenta sola).
+        val task = batch.commit()
+        val confirmed = withTimeoutOrNull(SYNC_WAIT_MS) { task.await(); true }
+        if (confirmed == true) SaveOutcome.SYNCED else SaveOutcome.QUEUED
     }
 }
