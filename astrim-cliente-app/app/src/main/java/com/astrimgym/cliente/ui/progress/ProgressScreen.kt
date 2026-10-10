@@ -18,10 +18,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -37,6 +42,7 @@ import com.astrimgym.cliente.data.repository.ProgressRepository
 import com.astrimgym.cliente.data.repository.WorkoutSummary
 import com.astrimgym.cliente.ui.common.ViewModelFactory
 import com.astrimgym.cliente.ui.components.AstrimCard
+import com.astrimgym.cliente.ui.components.AstrimPillButton
 import com.astrimgym.cliente.ui.components.BottomBarSpace
 import com.astrimgym.cliente.ui.components.EmptyState
 import com.astrimgym.cliente.ui.components.ErrorState
@@ -44,6 +50,8 @@ import com.astrimgym.cliente.ui.components.Eyebrow
 import com.astrimgym.cliente.ui.components.LoadingState
 import com.astrimgym.cliente.ui.components.ScreenHeader
 import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
+import com.astrimgym.cliente.ui.theme.Positive
+import com.astrimgym.cliente.ui.theme.Warning
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -62,16 +70,16 @@ fun ProgressScreen(progressRepository: ProgressRepository) {
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        ScreenHeader(title = "Progreso")
+        ScreenHeader(title = "Progreso", subtitle = "Con datos reales de tus entrenamientos")
         when (val s = state) {
             is ProgressUiState.Loading -> LoadingState()
             is ProgressUiState.Error -> ErrorState(s.message, onRetry = viewModel::refresh)
             is ProgressUiState.Success ->
                 if (!s.data.hasAnything) {
                     EmptyState(
-                        title = "Sin datos todavía",
-                        message = "Cuando termines tu primer entrenamiento vas a ver acá tu evolución, récords y objetivos.",
-                        glyph = "↗",
+                        title = "Tu progreso empieza hoy",
+                        message = "Tus datos van a aparecer acá a medida que registres entrenamientos: frecuencia, volumen e historial.",
+                        icon = Icons.Outlined.Insights,
                     )
                 } else {
                     ProgressContent(s.data)
@@ -184,43 +192,69 @@ private fun StatTile(label: String, value: String, unit: String, modifier: Modif
 private fun WeeklyChartCard(data: ProgressData) {
     val accent = LocalAstrimAccent.current
     val buckets = data.weeklyBuckets(8)
-    val maxSessions = (buckets.maxOfOrNull { it.sessions } ?: 0).coerceAtLeast(1)
+    var showVolume by rememberSaveable { mutableStateOf(false) }
+    val values = buckets.map { if (showVolume) it.volume else it.sessions.toDouble() }
+    val maxValue = (values.maxOrNull() ?: 0.0).coerceAtLeast(if (showVolume) 1.0 else 1.0)
     val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val lastIndex = buckets.lastIndex
 
     AstrimCard(modifier = Modifier.fillMaxWidth()) {
-        Eyebrow("Entrenos por semana")
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Últimas 8 semanas",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(16.dp))
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .height(120.dp),
-        ) {
-            val n = buckets.size
-            val gap = 10.dp.toPx()
-            val barW = (size.width - gap * (n - 1)) / n
-            buckets.forEachIndexed { i, b ->
-                val x = i * (barW + gap)
-                val h = size.height * 0.92f * (b.sessions / maxSessions.toFloat())
-                // pista
-                drawRoundRect(
-                    color = trackColor,
-                    topLeft = Offset(x, 0f),
-                    size = Size(barW, size.height),
-                    cornerRadius = CornerRadius(6.dp.toPx()),
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Eyebrow(if (showVolume) "Volumen por semana" else "Entrenos por semana")
+                Text(
+                    "Últimas 8 semanas",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (h > 0f) {
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AstrimPillButton("Entrenos", onClick = { showVolume = false }, selected = !showVolume)
+            AstrimPillButton("Volumen", onClick = { showVolume = true }, selected = showVolume)
+        }
+        Spacer(Modifier.height(16.dp))
+        if (values.all { it <= 0.0 }) {
+            Text(
+                if (showVolume) "Sin peso registrado en estas semanas." else "Sin entrenos en estas semanas.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 24.dp),
+            )
+        } else {
+            Text(
+                "máx. " + if (showVolume) formatKg(maxValue) else maxValue.toInt().toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Canvas(
+                Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+            ) {
+                val n = buckets.size
+                val gap = 10.dp.toPx()
+                val barW = (size.width - gap * (n - 1)) / n
+                values.forEachIndexed { i, v ->
+                    val x = i * (barW + gap)
+                    val h = size.height * (v / maxValue).toFloat()
                     drawRoundRect(
-                        color = accent.base,
-                        topLeft = Offset(x, size.height - h),
-                        size = Size(barW, h),
+                        color = trackColor,
+                        topLeft = Offset(x, 0f),
+                        size = Size(barW, size.height),
                         cornerRadius = CornerRadius(6.dp.toPx()),
                     )
+                    if (h > 0f) {
+                        drawRoundRect(
+                            // La semana en curso en lima pleno; las anteriores, lima profundo.
+                            color = if (i == lastIndex) accent.base else accent.deep,
+                            topLeft = Offset(x, size.height - h),
+                            size = Size(barW, h),
+                            cornerRadius = CornerRadius(6.dp.toPx()),
+                        )
+                    }
                 }
             }
         }
@@ -302,8 +336,8 @@ private fun MetricBox(
                 "$arrow ${trimNum(kotlin.math.abs(delta))}${if (deltaUnit.isNotBlank()) " $deltaUnit" else ""}",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (better == Better.NEUTRAL) MaterialTheme.colorScheme.onSurfaceVariant
-                    else if (good) LocalAstrimAccent.current.base
-                    else MaterialTheme.colorScheme.tertiary,
+                    else if (good) Positive
+                    else Warning,
             )
         } else if (better == Better.NEUTRAL && deltaUnit.isNotBlank()) {
             Text(deltaUnit, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -382,7 +416,8 @@ private fun WeightCard(data: ProgressData) {
             Text(
                 "$sign${trimNum(delta)} kg",
                 style = MaterialTheme.typography.titleMedium,
-                color = if (delta > 0) MaterialTheme.colorScheme.tertiary else LocalAstrimAccent.current.base,
+                // Neutro: subir o bajar de peso depende del objetivo de cada cliente.
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Text(

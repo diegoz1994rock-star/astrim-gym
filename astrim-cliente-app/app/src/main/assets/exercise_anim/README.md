@@ -1,27 +1,38 @@
-# Animaciones de ejercicios (Lottie)
+# Demostraciones de ejercicios (recursos locales)
 
-La zona central del Modo Entrenamiento (`ui/exercise/ExerciseAnimation.kt`)
-busca acá un archivo por ejercicio y lo reproduce en loop, con la velocidad
-atada al estado del entrenamiento (READY / ACTIVE / REST / DONE).
+El Modo Entrenamiento y la ficha de ejercicio (`ui/exercise/ExerciseMedia.kt`)
+buscan una demostración local para cada ejercicio. No hace falta tocar código:
+alcanza con dejar el archivo con el nombre correcto.
 
-## Cómo agregar una animación
+## Dónde va cada cosa
 
-1. Exportá la animación como **Lottie JSON** (After Effects + Bodymovin, o
-   LottieFiles). Fondo transparente, cuadrado (p. ej. 512×512).
-2. Nombrala con el *slug* del **grupo muscular** del ejercicio (preferido,
-   se reutiliza entre ejercicios) o, si no, del **nombre del ejercicio**.
-   El slug es minúsculas, sin acentos, con `_` en vez de espacios:
-   - "Pecho" → `pecho.json`
-   - "Sentadilla con barra" → `sentadilla_con_barra.json`
-3. Dejala en esta carpeta. No hay que tocar código.
+| Tipo | Carpeta | Formato |
+|---|---|---|
+| Animación | `assets/exercise_anim/` | Lottie JSON (`.json`), fondo transparente, cuadrado (512×512) |
+| Ilustración / foto | `assets/exercise_img/` | `.webp` (preferido), `.png` o `.jpg`, ≤ 800 px, < 150 KB |
 
-Mientras un ejercicio no tenga `.json`, se muestra un fallback animado
-premium dibujado en Compose (anillos + núcleo que responden al estado).
-Nunca una imagen estática ni un GIF.
+## Cómo se elige el nombre (de más específico a más genérico)
 
-## Rive
+1. **Id del ejercicio** (el mismo de Firestore): no cambia si el gimnasio lo renombra.
+2. **Nombre normalizado**: minúsculas, sin tildes, `_` en lugar de espacios y signos.
+   - "Press de banca" → `press_de_banca`
+   - "Curl de bíceps" → `curl_de_biceps`
+3. **Nombre sin conectores** (de, del, con, al, la…): "Press de banca" → `press_banca`.
+4. **Nombre sin lo que va entre paréntesis**: "Peso muerto (barra)" → `peso_muerto`.
+5. **Grupo muscular** (recurso compartido): "Pecho" → `pecho`.
 
-Si más adelante se prefiere Rive (animaciones por máquina de estados), el
-punto de enganche es el mismo `ExerciseAnimation`: se agrega la dependencia
-`app.rive.runtime.kotlin:rive-android` y una rama que cargue `<slug>.riv`
-antes del fallback.
+Para un mismo nivel, la animación gana a la imagen. Un recurso específico del
+ejercicio siempre gana a uno del grupo muscular.
+
+Si no hay recurso o falla al cargar, se muestra un respaldo neutro (ícono del
+tipo de ejercicio + grupo muscular) sin bloquear el entrenamiento. Si el
+gimnasio cargó un video (panel → ejercicio → video), aparece el botón
+"Ver demostración".
+
+## Pendiente
+
+Todavía no hay recursos empaquetados. Prioridad sugerida: press de banca,
+sentadilla, peso muerto, press militar, curl de bíceps, extensión de tríceps,
+jalón al pecho, remo, elevaciones laterales, flexiones, plancha, abdominales,
+zancadas, elevación de talones, bicicleta estática, cinta, elíptica.
+Usar solo material con licencia que permita redistribuirlo dentro de la APK.

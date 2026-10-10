@@ -79,6 +79,9 @@ class SoundManager private constructor(context: Context) : DefaultLifecycleObser
         private set
     var volume by mutableStateOf(prefs.getFloat(KEY_VOLUME, 0.85f).coerceIn(0f, 1f))
         private set
+    /** Vibraciones y hápticos de la app (ver `Haptics`). Independiente del sonido. */
+    var hapticsEnabled by mutableStateOf(prefs.getBoolean(KEY_HAPTICS, true))
+        private set
 
     init {
         pool.setOnLoadCompleteListener { _, sampleId, status ->
@@ -94,6 +97,11 @@ class SoundManager private constructor(context: Context) : DefaultLifecycleObser
         enabled = value
         prefs.edit().putBoolean(KEY_ENABLED, value).apply()
         if (value) play(Sfx.TAP) // confirmación audible al reactivar
+    }
+
+    fun updateHaptics(value: Boolean) {
+        hapticsEnabled = value
+        prefs.edit().putBoolean(KEY_HAPTICS, value).apply()
     }
 
     fun updateVolume(value: Float) {
@@ -136,6 +144,7 @@ class SoundManager private constructor(context: Context) : DefaultLifecycleObser
     companion object {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_VOLUME = "volume"
+        private const val KEY_HAPTICS = "haptics"
 
         @Volatile private var instance: SoundManager? = null
 

@@ -111,3 +111,28 @@ y se construyen sobre datos que ya existen en Firestore — sin datos de ejemplo
 llamaba a `Vibrator.vibrate()` sin el permiso `VIBRATE` en el manifiesto →
 `SecurityException` que tiraba la app al vencer un descanso. Se agregó el permiso
 (normal, sin diálogo) y se envolvió la llamada en `runCatching`.
+
+## 2026-10-09 — App de clientes: identidad ASTRIM GYM PERFORMANCE + rediseño del Modo Entrenamiento
+
+**Decisión:** la app de clientes usa una identidad fija: base oscura (#090A0C) y acento lima
+(#D9E66C) para todos los gimnasios. `gyms.brandColor` deja de teñir la app (el dato sigue en
+Firestore por si se reactiva). Se mantienen las 6 pestañas (Inicio, Rutina, Nutrición, Clases,
+Progreso, Perfil), ahora de ancho fijo con ícono + etiqueta siempre visibles.
+
+**Modo Entrenamiento:** misma lógica (series → descanso automático → completado → 2 min de
+cambio → resumen), UI nueva. Se corrigieron dos fallas reales del motor:
+- Un segundo toque en "Completar serie" durante el fundido hacia el descanso registraba una serie
+  duplicada. Ahora `completeSet`/`nextExerciseFromDone`/`skipRest` solo actúan en su fase.
+- El guardado se disparaba desde un `LaunchedEffect` (se repetía al recrear la pantalla), ignoraba
+  errores y, sin red, `commit().await()` no terminaba nunca (spinner infinito). Ahora el VM guarda
+  una sola vez y expone `SaveStatus` (SAVED / QUEUED sin conexión / ERROR con reintento / SKIPPED
+  sin series). Firestore conserva la escritura en cola si no hay red.
+
+**Demostración de ejercicios:** `ExerciseMedia` resuelve, en orden: animación Lottie local
+(`assets/exercise_anim/`), imagen local (`assets/exercise_img/`), video del gimnasio (botón "Ver
+demostración"), y un respaldo neutro (ícono + grupo muscular) que no simula movimiento humano.
+Claves: id del ejercicio → nombre normalizado → nombre sin conectores → grupo muscular
+(`ExerciseAssetKeys`, con pruebas). **Todavía no hay animaciones ni imágenes empaquetadas.**
+
+**Pruebas:** primeras pruebas JVM del proyecto (`app/src/test`): motor de entrenamiento con reloj y
+dispatcher virtuales, resolución de recursos y estimación de duración.

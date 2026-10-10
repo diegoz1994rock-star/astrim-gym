@@ -2,7 +2,6 @@ package com.astrimgym.cliente.ui.routine
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,13 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,8 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,12 +35,19 @@ import com.astrimgym.cliente.ui.common.ViewModelFactory
 import com.astrimgym.cliente.ui.common.exercisesLabel
 import com.astrimgym.cliente.ui.components.AstrimCard
 import com.astrimgym.cliente.ui.components.BottomBarSpace
+import com.astrimgym.cliente.ui.components.ChipTone
 import com.astrimgym.cliente.ui.components.EmptyState
 import com.astrimgym.cliente.ui.components.ErrorState
 import com.astrimgym.cliente.ui.components.Eyebrow
+import com.astrimgym.cliente.ui.components.IconTile
+import com.astrimgym.cliente.ui.components.InfoChip
 import com.astrimgym.cliente.ui.components.LoadingState
 import com.astrimgym.cliente.ui.components.ScreenHeader
-import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
+import com.astrimgym.cliente.ui.theme.TextSecondary
+import com.astrimgym.cliente.ui.theme.TextTertiary
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun RoutineListScreen(
@@ -58,7 +64,7 @@ fun RoutineListScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        ScreenHeader(title = "Rutinas")
+        ScreenHeader(title = "Rutinas", subtitle = "Asignadas por tu entrenador")
         when (val current = state) {
             is RoutineListUiState.Loading -> LoadingState()
             is RoutineListUiState.Error -> ErrorState(current.message, onRetry = viewModel::refresh)
@@ -66,25 +72,25 @@ fun RoutineListScreen(
                 if (current.current.isEmpty() && current.history.isEmpty()) {
                     EmptyState(
                         title = "Sin rutinas todavía",
-                        message = "Tu entrenador todavía no te asignó ninguna rutina.",
-                        glyph = "◇",
+                        message = "Tu entrenador todavía no te asignó ninguna rutina. Cuando lo haga, la vas a ver acá.",
+                        icon = Icons.Outlined.FitnessCenter,
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = BottomBarSpace),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = BottomBarSpace),
                     ) {
                         if (current.current.isNotEmpty()) {
-                            item { Eyebrow("Actual") }
+                            item(key = "h-current") { Eyebrow("Rutina actual") }
                             items(current.current, key = { it.assignmentId }) {
                                 RoutineCard(it, primary = true) { onOpenRoutine(it.routineId) }
                             }
                         }
                         if (current.history.isNotEmpty()) {
-                            item {
+                            item(key = "h-history") {
                                 Spacer(Modifier.height(12.dp))
-                                Eyebrow("Historial", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Eyebrow("Historial")
                             }
                             items(current.history, key = { it.assignmentId }) {
                                 RoutineCard(it, primary = false) { onOpenRoutine(it.routineId) }
@@ -99,45 +105,60 @@ fun RoutineListScreen(
 
 @Composable
 private fun RoutineCard(routine: AssignedRoutine, primary: Boolean, onClick: () -> Unit) {
-    val accent = LocalAstrimAccent.current
     AstrimCard(
         modifier = Modifier.fillMaxWidth(),
         hero = primary,
         onClick = onClick,
-        contentPadding = PaddingValues(18.dp),
+        contentPadding = PaddingValues(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(
+                if (primary) Icons.Outlined.FitnessCenter else Icons.Outlined.History,
+                tint = if (primary) com.astrimgym.cliente.ui.theme.Lime else TextSecondary,
+                size = 48.dp,
+            )
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                if (primary) {
-                    Eyebrow("Rutina actual")
-                    Spacer(Modifier.height(6.dp))
-                }
                 Text(
                     routine.name,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    exercisesLabel(routine.exerciseCount),
+                    listOfNotNull(exercisesLabel(routine.exerciseCount), dateRange(routine.startDate, routine.endDate))
+                        .joinToString("  ·  "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = TextSecondary,
                 )
+                Spacer(Modifier.height(8.dp))
+                val (label, tone) = statusLabel(routine.status)
+                InfoChip(label, tone = tone)
             }
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(if (primary) accent.soft else MaterialTheme.colorScheme.surfaceContainerHigh),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = if (primary) accent.base else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
         }
+    }
+}
+
+private fun statusLabel(status: String): Pair<String, ChipTone> = when (status.uppercase()) {
+    "ACTIVE" -> "Activa" to ChipTone.ACCENT
+    "COMPLETED", "FINISHED" -> "Finalizada" to ChipTone.SUCCESS
+    "PAUSED" -> "En pausa" to ChipTone.WARNING
+    "ARCHIVED", "INACTIVE" -> "Archivada" to ChipTone.NEUTRAL
+    else -> status.lowercase().replaceFirstChar { it.uppercase() } to ChipTone.NEUTRAL
+}
+
+private val SHORT = DateTimeFormatter.ofPattern("d MMM", Locale("es"))
+
+private fun dateRange(start: String?, end: String?): String? {
+    fun fmt(raw: String?) = raw?.take(10)?.let { runCatching { LocalDate.parse(it).format(SHORT) }.getOrNull() }
+    val a = fmt(start)
+    val b = fmt(end)
+    return when {
+        a != null && b != null -> "$a – $b"
+        a != null -> "desde $a"
+        else -> null
     }
 }

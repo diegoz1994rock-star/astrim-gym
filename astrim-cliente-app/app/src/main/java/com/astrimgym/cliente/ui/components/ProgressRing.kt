@@ -1,5 +1,6 @@
 package com.astrimgym.cliente.ui.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -17,18 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
+import com.astrimgym.cliente.ui.theme.Motion
 
 /**
- * Anillo de progreso circular premium: pista tenue + arco de acento con
- * degradado, extremo redondeado y un halo suave. El `progress` (0..1) se
- * anima siempre, así el descanso "respira" en vez de saltar cada segundo.
- * Slot central libre (contador, ícono...).
+ * Anillo de progreso: pista tenue + arco sólido con extremo redondeado.
+ * `progress` (0..1) se interpola; con `linear = true` el cambio es lineal
+ * (cuentas regresivas: el arco avanza a ritmo constante, sin "saltos").
+ * Slot central libre para el número.
  */
 @Composable
 fun ProgressRing(
@@ -36,14 +38,19 @@ fun ProgressRing(
     modifier: Modifier = Modifier,
     diameter: Dp = 240.dp,
     stroke: Dp = 12.dp,
+    color: Color = LocalAstrimAccent.current.base,
     animate: Boolean = true,
+    linear: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val accent = LocalAstrimAccent.current
     val target = progress.coerceIn(0f, 1f)
     val shown by animateFloatAsState(
         targetValue = target,
-        animationSpec = if (animate) tween(650) else tween(0),
+        animationSpec = when {
+            !animate -> tween(0)
+            linear -> tween(1000, easing = LinearEasing)
+            else -> tween(Motion.PROGRESS)
+        },
         label = "ring",
     )
 
@@ -54,67 +61,48 @@ fun ProgressRing(
             val arcSize = Size(size.width - strokePx, size.height - strokePx)
             val topLeft = Offset(inset, inset)
 
-            // Pista
             drawArc(
-                color = accent.base.copy(alpha = 0.09f),
+                color = color.copy(alpha = 0.12f),
                 startAngle = -90f, sweepAngle = 360f, useCenter = false,
                 topLeft = topLeft, size = arcSize,
                 style = Stroke(width = strokePx),
             )
-            // Halo
-            if (shown > 0f) {
+            if (shown > 0.001f) {
                 drawArc(
-                    color = accent.base.copy(alpha = 0.14f),
+                    color = color,
                     startAngle = -90f, sweepAngle = 360f * shown, useCenter = false,
                     topLeft = topLeft, size = arcSize,
-                    style = Stroke(width = strokePx * 1.7f, cap = StrokeCap.Round),
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
                 )
             }
-            // Progreso
-            drawArc(
-                brush = Brush.sweepGradient(
-                    listOf(
-                        accent.base.copy(alpha = 0.65f),
-                        accent.base,
-                        accent.base.copy(alpha = 0.65f),
-                    ),
-                ),
-                startAngle = -90f, sweepAngle = 360f * shown, useCenter = false,
-                topLeft = topLeft, size = arcSize,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
         }
         content()
     }
 }
 
-/**
- * Barra de progreso lineal delgada: pista tenue + relleno de acento animado.
- * Se usa para las metas de macros/categorías de "Progreso de hoy" (ej.
- * "Proteína 125 / 180 g").
- */
+/** Barra lineal delgada: pista tenue + relleno animado (macros, progreso de sesión). */
 @Composable
 fun MacroProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     height: Dp = 8.dp,
+    color: Color = LocalAstrimAccent.current.base,
 ) {
-    val accent = LocalAstrimAccent.current
     val target = progress.coerceIn(0f, 1f)
-    val shown by animateFloatAsState(targetValue = target, animationSpec = tween(500), label = "macroBar")
+    val shown by animateFloatAsState(targetValue = target, animationSpec = tween(Motion.PROGRESS), label = "bar")
     Box(
         modifier
             .fillMaxWidth()
             .height(height)
             .clip(CircleShape)
-            .background(accent.base.copy(alpha = 0.12f)),
+            .background(color.copy(alpha = 0.14f)),
     ) {
         Box(
             Modifier
                 .fillMaxWidth(shown)
                 .height(height)
                 .clip(CircleShape)
-                .background(accent.base),
+                .background(color),
         )
     }
 }

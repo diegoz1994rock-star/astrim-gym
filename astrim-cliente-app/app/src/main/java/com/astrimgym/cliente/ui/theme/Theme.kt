@@ -1,22 +1,22 @@
 package com.astrimgym.cliente.ui.theme
 
+import android.provider.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * El color de acento es lo único que varía por gimnasio (gyms.brandColor).
- * Todo lo demás (fondo charcoal, superficies, tipografía, radios) es fijo —
- * la identidad de marca vive en el acento y el logo, nunca en cambiar la
- * base premium/oscura.
+ * Identidad ASTRIM GYM PERFORMANCE: base oscura + acento lima, fijo para
+ * todos los gimnasios (decisión 2026-10-09: `gyms.brandColor` ya no tiñe la
+ * app; el dato se conserva en Firestore por si se reactiva).
  *
- * Escala de espaciado de la app (usar siempre estos valores):
- * 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40
+ * Escala de espaciado (múltiplos de 4): 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40
  */
 object Spacing {
     val xs = 4.dp
@@ -29,43 +29,62 @@ object Spacing {
     val huge = 40.dp
 }
 
+/** Duraciones de movimiento de la app (ms). Un solo lugar para ajustarlas. */
+object Motion {
+    const val PRESS = 110
+    const val CONFIRM = 200
+    const val CARD = 220
+    const val SCREEN = 240
+    const val PHASE = 260
+    const val PROGRESS = 450
+}
+
 /** Colores derivados del acento que las pantallas consumen por nombre. */
 data class AstrimAccent(
     val base: Color,
+    val bright: Color,
+    val deep: Color,
     /** Texto/íconos sobre un relleno sólido del acento. */
     val onAccent: Color,
-    /** Relleno translúcido para fondos de chips, badges, halos. */
+    /** Relleno translúcido para chips, badges y estados seleccionados. */
     val soft: Color,
     /** Borde translúcido a juego con [soft]. */
     val border: Color,
-    /** Glow para el botón principal / anillos. */
-    val glow: Color,
 )
 
-val LocalAstrimAccent = staticCompositionLocalOf {
-    accentPalette(DefaultAccent)
-}
-
-private fun accentPalette(accent: Color): AstrimAccent = AstrimAccent(
-    base = accent,
-    onAccent = if (accent.luminance() > 0.6f) Color(0xFF07130C) else Color(0xFF06210F),
-    soft = accent.copy(alpha = 0.14f),
-    border = accent.copy(alpha = 0.30f),
-    glow = accent.copy(alpha = 0.55f),
+private val AstrimLime = AstrimAccent(
+    base = Lime,
+    bright = LimeBright,
+    deep = LimeDeep,
+    onAccent = OnLime,
+    soft = Lime.copy(alpha = 0.12f),
+    border = Lime.copy(alpha = 0.32f),
 )
+
+val LocalAstrimAccent = staticCompositionLocalOf { AstrimLime }
+
+/**
+ * true cuando el sistema pidió quitar animaciones (Opciones de desarrollador
+ * o Accesibilidad → "Quitar animaciones"). Las animaciones permanentes y
+ * decorativas se apagan; las de estado (progreso, fundidos) se mantienen
+ * porque el propio sistema ya las acorta.
+ */
+val LocalReducedMotion = staticCompositionLocalOf { false }
 
 @Composable
-fun AstrimTheme(
-    accentColor: Color = DefaultAccent,
-    content: @Composable () -> Unit,
-) {
-    val accent = accentPalette(accentColor)
+fun AstrimTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val reducedMotion = remember {
+        runCatching {
+            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        }.getOrDefault(false)
+    }
 
     val colorScheme = darkColorScheme(
-        primary = accentColor,
-        onPrimary = accent.onAccent,
-        primaryContainer = accent.soft,
-        onPrimaryContainer = accentColor,
+        primary = Lime,
+        onPrimary = OnLime,
+        primaryContainer = AstrimLime.soft,
+        onPrimaryContainer = Lime,
         secondary = TextSecondary,
         background = Ink,
         onBackground = TextPrimary,
@@ -73,17 +92,21 @@ fun AstrimTheme(
         onSurface = TextPrimary,
         surfaceVariant = SurfaceCardHi,
         onSurfaceVariant = TextSecondary,
-        surfaceContainer = SurfaceCard,
+        surfaceContainerLow = SurfaceCard,
+        surfaceContainer = SurfaceCardMid,
         surfaceContainerHigh = SurfaceCardHi,
-        outline = HairlineStrong,
+        outline = Hairline,
         outlineVariant = HairlineSoft,
         error = Danger,
         onError = Color(0xFF1A0405),
         tertiary = Warning,
-        scrim = Color(0xE6070809),
+        scrim = Scrim,
     )
 
-    CompositionLocalProvider(LocalAstrimAccent provides accent) {
+    CompositionLocalProvider(
+        LocalAstrimAccent provides AstrimLime,
+        LocalReducedMotion provides reducedMotion,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AstrimTypography,

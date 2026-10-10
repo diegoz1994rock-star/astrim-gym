@@ -18,7 +18,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +64,7 @@ import com.astrimgym.cliente.ui.components.LoadingState
 import com.astrimgym.cliente.ui.components.MacroProgressBar
 import com.astrimgym.cliente.ui.components.ScreenHeader
 import com.astrimgym.cliente.ui.theme.LocalAstrimAccent
+import com.astrimgym.cliente.ui.theme.Positive
 
 /** Categorías que ya se ven reflejadas en los macros diarios (Proteína/Carbohidratos/Grasa)
  *  — se excluyen de las metas por categoría para no mostrar el mismo dato dos veces. */
@@ -145,46 +151,11 @@ private fun MealPlanSummaryContent(
     ) {
         item { GoalCard(plan) }
 
-        val dailyTargets = buildList {
-            plan.dailyCaloriesTarget?.let { add(Triple("Calorías", it, "kcal")) }
-            plan.dailyProteinTarget?.let { add(Triple("Proteína", it, "g")) }
-            plan.dailyCarbsTarget?.let { add(Triple("Carbohidratos", it, "g")) }
-            plan.dailyFatTarget?.let { add(Triple("Grasa", it, "g")) }
-        }
-        if (dailyTargets.isNotEmpty()) {
-            item { DailyTargetsCard(dailyTargets) }
-        }
-
         // Categorías con meta propia que NO se solapan con un macro (Verdura, Fruta, etc.):
         // esas sí aportan información nueva por comida y en el total.
         val extraCategoryTargets = plan.categoryTargets.filter { it.category !in CATEGORIES_COVERED_BY_MACROS }
 
-        // ---- Desglose por comida: totales de cada comida del día, sin mezclarlos entre sí ----
-        val mealsWithEntries = MEAL_TYPE_ORDER.filter { (key, _) -> !state.entriesByMealType[key].isNullOrEmpty() }
-        if (mealsWithEntries.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(4.dp))
-                Eyebrow("Totales por comida")
-            }
-            mealsWithEntries.forEach { (key, label) ->
-                item {
-                    val entries = state.entriesByMealType[key].orEmpty()
-                    val macros = Macros(
-                        calories = entries.sumOf { it.calories },
-                        protein = entries.sumOf { it.protein },
-                        carbs = entries.sumOf { it.carbs },
-                        fat = entries.sumOf { it.fat },
-                    )
-                    val categoryTotals = extraCategoryTargets.mapNotNull { ct ->
-                        val qty = entries.filter { it.category == ct.category }.sumOf { it.quantity }
-                        if (qty > 0) mealCategoryLabel(ct.category) to (qty to ct.targetUnit) else null
-                    }
-                    MealSummaryCard(label = label, macros = macros, categoryTotals = categoryTotals)
-                }
-            }
-        }
-
-        // ---- Meta diaria: la suma de TODAS las comidas contra el objetivo del día ----
+        // ---- Hoy vs. meta del entrenador: la suma de TODAS las comidas contra el objetivo del día ----
         val progressRows = buildList {
             plan.dailyCaloriesTarget?.let { add(MacroProgressRowData("Calorías", state.todayTotals.calories, it, "kcal")) }
             plan.dailyProteinTarget?.let { add(MacroProgressRowData("Proteína", state.todayTotals.protein, it, "g")) }
@@ -225,6 +196,31 @@ private fun MealPlanSummaryContent(
             }
         }
 
+        // ---- Desglose por comida: totales de cada comida del día, sin mezclarlos entre sí ----
+        val mealsWithEntries = MEAL_TYPE_ORDER.filter { (key, _) -> !state.entriesByMealType[key].isNullOrEmpty() }
+        if (mealsWithEntries.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(4.dp))
+                Eyebrow("Totales por comida")
+            }
+            mealsWithEntries.forEach { (key, label) ->
+                item {
+                    val entries = state.entriesByMealType[key].orEmpty()
+                    val macros = Macros(
+                        calories = entries.sumOf { it.calories },
+                        protein = entries.sumOf { it.protein },
+                        carbs = entries.sumOf { it.carbs },
+                        fat = entries.sumOf { it.fat },
+                    )
+                    val categoryTotals = extraCategoryTargets.mapNotNull { ct ->
+                        val qty = entries.filter { it.category == ct.category }.sumOf { it.quantity }
+                        if (qty > 0) mealCategoryLabel(ct.category) to (qty to ct.targetUnit) else null
+                    }
+                    MealSummaryCard(label = label, macros = macros, categoryTotals = categoryTotals)
+                }
+            }
+        }
+
         item {
             Spacer(Modifier.height(6.dp))
             NutritionDisclaimer()
@@ -234,6 +230,33 @@ private fun MealPlanSummaryContent(
 
 @Composable
 private fun NutritionDisclaimer() {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { open = !open }
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.size(8.dp))
+        Text(
+            "Sobre los valores nutricionales",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (open) NutritionDisclaimerText()
+}
+
+@Composable
+private fun NutritionDisclaimerText() {
     Text(
         "Los valores nutricionales mostrados en ASTRIM GYM son valores de referencia obtenidos a partir de " +
             "bases de datos y tablas de composición de alimentos reconocidas, incluyendo USDA FoodData Central, " +
@@ -255,7 +278,7 @@ private fun NutritionDisclaimer() {
 @Composable
 private fun GoalCard(plan: ActiveMealPlan) {
     AstrimCard(modifier = Modifier.fillMaxWidth(), hero = true) {
-        Eyebrow("Objetivo")
+        Eyebrow("Objetivo del plan", color = LocalAstrimAccent.current.base)
         Spacer(Modifier.height(8.dp))
         Text(
             mealPlanGoalLabel(plan.goal),
@@ -274,28 +297,6 @@ private fun GoalCard(plan: ActiveMealPlan) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun DailyTargetsCard(targets: List<Triple<String, Double, String>>) {
-    AstrimCard(modifier = Modifier.fillMaxWidth()) {
-        Eyebrow("Meta diaria")
-        Spacer(Modifier.height(10.dp))
-        targets.forEach { (label, value, unit) ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    "${formatNumber(value)} $unit",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
         }
     }
 }
@@ -337,24 +338,45 @@ private data class MacroProgressRowData(val label: String, val current: Double, 
 @Composable
 private fun TodayProgressCard(rows: List<MacroProgressRowData>) {
     AstrimCard(modifier = Modifier.fillMaxWidth()) {
-        Eyebrow("Meta diaria (suma de todas las comidas)")
-        Spacer(Modifier.height(14.dp))
+        Eyebrow("Hoy vs. meta de tu entrenador")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Registrado por vos  ·  meta definida por tu entrenador",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(16.dp))
         rows.forEachIndexed { index, row ->
             val progress = if (row.target > 0) (row.current / row.target).toFloat() else 0f
+            val reached = row.target > 0 && row.current >= row.target
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
             ) {
-                Text(row.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 Text(
-                    "${formatNumber(row.current)} / ${formatNumber(row.target)} ${row.unit}",
+                    row.label,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = LocalAstrimAccent.current.base,
-                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    formatNumber(row.current),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (reached) Positive else LocalAstrimAccent.current.base,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    " / ${formatNumber(row.target)} ${row.unit}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(6.dp))
-            MacroProgressBar(progress = progress)
+            MacroProgressBar(progress = progress, color = if (reached) Positive else LocalAstrimAccent.current.base)
+            if (reached) {
+                Spacer(Modifier.height(4.dp))
+                Text("Meta alcanzada", style = MaterialTheme.typography.labelSmall, color = Positive)
+            }
             if (index != rows.lastIndex) Spacer(Modifier.height(14.dp))
         }
     }
@@ -426,10 +448,11 @@ private fun MealTypeSection(
         }
         Spacer(Modifier.height(10.dp))
         AstrimOutlineButton(
-            text = "+ Agregar alimento",
+            text = "Agregar alimento",
             onClick = onAdd,
             modifier = Modifier.fillMaxWidth(),
-            height = 44.dp,
+            icon = Icons.Rounded.Add,
+            height = 48.dp,
         )
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,10 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.astrimgym.cliente.data.model.ExerciseDoc
+import com.astrimgym.cliente.data.model.muscleGroupLabel
 import com.astrimgym.cliente.data.model.RoutineExerciseDoc
 import com.astrimgym.cliente.data.repository.RoutineRepository
 import com.astrimgym.cliente.ui.common.ViewModelFactory
+import com.astrimgym.cliente.ui.components.AccentEyebrow
 import com.astrimgym.cliente.ui.components.AstrimCard
+import com.astrimgym.cliente.ui.components.ChipTone
+import com.astrimgym.cliente.ui.exercise.ExerciseMedia
 import com.astrimgym.cliente.ui.components.ErrorState
 import com.astrimgym.cliente.ui.components.Eyebrow
 import com.astrimgym.cliente.ui.components.InfoChip
@@ -44,7 +49,6 @@ fun ExerciseDetailScreen(
         factory = ViewModelFactory { ExerciseDetailViewModel(routineRepository, routineId, exerciseId) },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val title = (state as? ExerciseDetailUiState.Success)?.data?.exercise?.name ?: "Ejercicio"
 
     Column(
         Modifier
@@ -52,11 +56,12 @@ fun ExerciseDetailScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
     ) {
-        ScreenHeader(title = title, onBack = onBack)
+        ScreenHeader(title = "Ejercicio", onBack = onBack)
         when (val current = state) {
             is ExerciseDetailUiState.Loading -> LoadingState()
             is ExerciseDetailUiState.Error -> ErrorState(current.message, onRetry = viewModel::refresh)
             is ExerciseDetailUiState.Success -> Content(
+                exerciseId = exerciseId,
                 exercise = current.data.exercise,
                 config = current.data.routineConfig,
             )
@@ -66,7 +71,8 @@ fun ExerciseDetailScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Content(exercise: ExerciseDoc, config: RoutineExerciseDoc?) {
+private fun Content(exerciseId: String, exercise: ExerciseDoc, config: RoutineExerciseDoc?) {
+    val hasVideo = parseVideo(exercise.videoPath).kind != VideoKind.NONE
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,16 +80,34 @@ private fun Content(exercise: ExerciseDoc, config: RoutineExerciseDoc?) {
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(4.dp))
+        Text(
+            exercise.name ?: config?.exerciseName ?: "Ejercicio",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            exercise.muscleGroup?.takeIf { it.isNotBlank() }?.let { InfoChip(it) }
+            muscleGroupLabel(exercise.muscleGroup)?.let { InfoChip(it, tone = ChipTone.ACCENT) }
             exercise.equipment?.takeIf { it.isNotBlank() }?.let { InfoChip(it) }
             exercise.level?.takeIf { it.isNotBlank() }?.let { InfoChip(levelLabel(it)) }
         }
 
+        // Demostración local (animación/ilustración) o respaldo neutro. Si
+        // el gimnasio cargó un video, se muestra debajo con su reproductor.
+        Spacer(Modifier.height(16.dp))
+        ExerciseMedia(
+            exerciseId = exerciseId,
+            name = exercise.name,
+            muscleGroup = muscleGroupLabel(exercise.muscleGroup),
+            isCardio = config?.isCardio == true,
+            active = false,
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 11f),
+        )
+
         if (config != null) {
             Spacer(Modifier.height(16.dp))
             AstrimCard(modifier = Modifier.fillMaxWidth()) {
-                Eyebrow("Tu configuración")
+                AccentEyebrow("Lo que te prescribió tu entrenador")
                 Spacer(Modifier.height(10.dp))
                 Text(
                     config.summaryLine(),
@@ -102,19 +126,15 @@ private fun Content(exercise: ExerciseDoc, config: RoutineExerciseDoc?) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                config.notes?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Nota del entrenador: $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            }
+            config.notes?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(10.dp))
+                TrainerNote(it)
             }
         }
 
-        if (parseVideo(exercise.videoPath).kind != VideoKind.NONE) {
-            Spacer(Modifier.height(16.dp))
+        if (hasVideo) {
+            Section("Video de demostración")
             VideoSection(exercise.videoPath)
         }
 

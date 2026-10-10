@@ -119,7 +119,7 @@ fun VideoSection(rawUrl: String?, modifier: Modifier = Modifier) {
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                    icon = Icons.Filled.PlayArrow,
                 )
             }
             VideoKind.NONE -> Unit
