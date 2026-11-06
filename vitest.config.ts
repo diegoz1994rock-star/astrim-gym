@@ -7,6 +7,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    __APP_VERSION__: JSON.stringify("test"),
+  },
   test: {
     environment: "node",
   },

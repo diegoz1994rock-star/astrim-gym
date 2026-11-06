@@ -135,7 +135,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             alt="ASTRIM GYM"
             className="h-auto w-40 object-contain"
           />
-          <span className="text-sm text-subtle">versión 2.1.0</span>
+          <span className="text-sm text-subtle">versión v{__APP_VERSION__}</span>
           <span className="text-[11px] text-subtle/80">
             © {new Date().getFullYear()} ASTRIM — Todos los derechos reservados
           </span>
