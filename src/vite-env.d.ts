@@ -12,3 +12,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Versión del programa (de src-tauri/tauri.conf.json), inyectada por Vite. */
+declare const __APP_VERSION__: string;
