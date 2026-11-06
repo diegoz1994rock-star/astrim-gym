@@ -28,6 +28,33 @@ const RETRY_FAILED_MS = 3 * 60_000;
 const KICK_DEBOUNCE_MS = 500;
 
 let running = false;
+/** Mientras > 0 el worker no sube nada (p. ej. durante una restauración). */
+let pausedCount = 0;
+
+/**
+ * Corre `fn` con la sincronización pausada: lo que se escriba en la base
+ * mientras tanto no se sube (la restauración baja datos de la nube y no
+ * tiene sentido re-subirlos). Espera a que termine un push en curso.
+ */
+export async function withSyncPaused<T>(fn: () => Promise<T>): Promise<T> {
+  pausedCount += 1;
+  try {
+    while (running) await new Promise((r) => setTimeout(r, 100));
+    return await fn();
+  } finally {
+    pausedCount -= 1;
+  }
+}
+
+/** Tras restaurar una instalación vacía no hace falta ningún backfill. */
+export function markBackfillsDone(): void {
+  try {
+    localStorage.setItem(BACKFILL_FLAG, "1");
+    localStorage.setItem(HISTORY_BACKFILL_FLAG, "1");
+  } catch {
+    /* sin localStorage: el backfill solo re-encola, no rompe nada */
+  }
+}
 
 /**
  * Backfill automático, una sola vez por instalación: sube a la nube TODO lo
@@ -41,6 +68,22 @@ async function ensureBackfilled(): Promise<void> {
     if (localStorage.getItem(BACKFILL_FLAG) === "1") return;
     await outboxRepository.backfillAll();
     localStorage.setItem(BACKFILL_FLAG, "1");
+  } catch {
+    /* si falla, se reintenta en el próximo arranque */
+  }
+}
+
+/**
+ * v0.2.2: pagos, asistencias y el código de asistencia de los clientes
+ * empezaron a viajar a la nube. Una vez por instalación se encola lo que
+ * ya existía (en instalaciones nuevas no hay nada que subir).
+ */
+const HISTORY_BACKFILL_FLAG = "astrim.historyBackfillDone.v1";
+async function ensureHistoryBackfilled(): Promise<void> {
+  try {
+    if (localStorage.getItem(HISTORY_BACKFILL_FLAG) === "1") return;
+    await outboxRepository.backfillHistory();
+    localStorage.setItem(HISTORY_BACKFILL_FLAG, "1");
   } catch {
     /* si falla, se reintenta en el próximo arranque */
   }
@@ -63,11 +106,12 @@ export async function syncNow(): Promise<SyncResult> {
   if (!isCloudConfigured) return empty;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return empty;
   if (!currentCloudUser()) return empty;
-  if (running) return empty;
+  if (running || pausedCount > 0) return empty;
 
   running = true;
   try {
     await ensureBackfilled();
+    await ensureHistoryBackfilled();
     const db = getCloudDb();
     const items = await outboxRepository.listPending(BATCH_LIMIT);
     if (items.length === 0) return { processed: 0, synced: 0, failed: 0, skipped: false };

@@ -68,7 +68,7 @@ function saveRememberedCredentials(creds: RememberedCredentials | null): void {
 }
 
 export function LoginPage() {
-  const { login, sessionEndedReason } = useAuth();
+  const { login, sessionEndedReason, restoreProgress } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -252,11 +252,18 @@ export function LoginPage() {
               </div>
             )}
 
+            {restoreProgress && (
+              <div className="rounded-md border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                <p className="font-medium">Este equipo es nuevo: estamos trayendo tu gimnasio desde la nube.</p>
+                <p className="mt-1 text-muted-foreground">{restoreProgress}</p>
+              </div>
+            )}
+
             <Button type="submit" size="lg" disabled={isSubmitting} className="mt-2 w-full">
               {isSubmitting ? (
                 <>
                   <Spinner />
-                  Verificando…
+                  {restoreProgress ? "Recuperando datos…" : "Verificando…"}
                 </>
               ) : (
                 "Ingresar"

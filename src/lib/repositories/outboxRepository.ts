@@ -234,8 +234,52 @@ export async function backfillAll(): Promise<void> {
     `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
      SELECT ${uid}, 'meal_plan_allowed_foods', maf.id, mp.gym_id, 'UPSERT', json_object('gymId', mp.gym_id, 'mealPlanId', maf.meal_plan_id)
      FROM meal_plan_allowed_foods maf JOIN meal_plans mp ON mp.id = maf.meal_plan_id WHERE 1=1 ${onConflict}`,
+    ...historyBackfillStatements(),
   ];
   for (const sql of stmts) {
     await db.execute(sql);
   }
+}
+
+/**
+ * Pagos y asistencias (migración 0041) y el código de asistencia de cada
+ * cliente empezaron a sincronizarse en v0.2.2. En instalaciones que ya
+ * habían hecho el backfill inicial, esto sube lo que ya existía. Sin
+ * `ON CONFLICT` sobre PENDING no se duplica nada: re-encola una sola vez.
+ */
+function historyBackfillStatements(): string[] {
+  const uid = `lower(hex(randomblob(16)))`;
+  const onConflict = `ON CONFLICT (entity, entity_id) WHERE status = 'PENDING' DO NOTHING`;
+  return [
+    `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
+     SELECT ${uid}, 'clients', id, gym_id, 'UPSERT', json_object('gymId', gym_id, 'clientId', id) FROM clients WHERE 1=1 ${onConflict}`,
+    `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
+     SELECT ${uid}, 'payments', id, gym_id, 'UPSERT', json_object('gymId', gym_id, 'clientId', client_id) FROM payments WHERE 1=1 ${onConflict}`,
+    `INSERT INTO outbox (id, entity, entity_id, gym_id, op, payload)
+     SELECT ${uid}, 'attendance', id, gym_id, 'UPSERT', json_object('gymId', gym_id, 'clientId', client_id) FROM attendance WHERE 1=1 ${onConflict}`,
+  ];
+}
+
+export async function backfillHistory(): Promise<void> {
+  const db = await getDb();
+  for (const sql of historyBackfillStatements()) {
+    await db.execute(sql);
+  }
+}
+
+/** Mayor rowid actual de la cola (para descartar lo que encole una restauración). */
+export async function maxOutboxRowid(): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select<{ m: number | null }[]>("SELECT MAX(rowid) AS m FROM outbox");
+  return rows[0]?.m ?? 0;
+}
+
+/**
+ * Descarta lo que los triggers encolaron mientras se restauraba desde la
+ * nube: esos datos acaban de BAJAR de Firestore, re-subirlos es gastar
+ * escrituras (y podría pisar campos que la restauración no conoce).
+ */
+export async function discardPendingAfter(rowid: number): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM outbox WHERE rowid > $1 AND status = 'PENDING'", [rowid]);
 }

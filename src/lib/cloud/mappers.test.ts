@@ -62,14 +62,41 @@ describe("mapRowToData", () => {
       "photo_path",
       "photoPath",
       "observations",
-      "weight",
       "address",
       "attendance_code",
-      "attendanceCode",
       "password_hash",
     ]) {
       expect(data).not.toHaveProperty(forbidden);
     }
+    // Viajan a propósito: las medidas base (restauración / app del cliente)
+    // y el código del kiosco, para que siga sirviendo tras restaurar en otra PC.
+    expect(data.weight).toBe(80);
+    expect(data.attendanceCode).toBe("1234");
+  });
+
+  it("payments y attendance: van bajo el cliente con los campos del historial", () => {
+    expect(cloudPath("payments", "p1", { gymId: "g1", clientId: "c1" })).toEqual([
+      "clients", "c1", "payments", "p1",
+    ]);
+    expect(cloudPath("attendance", "a1", { gymId: "g1", clientId: "c1" })).toEqual([
+      "clients", "c1", "attendance", "a1",
+    ]);
+    expect(
+      mapRowToData("payments", {
+        id: "p1", gym_id: "g1", client_id: "c1", membership_id: "m1", amount: 80000,
+        date: "2026-11-06", method: "CASH", status: "PAID", concept: "Mensualidad",
+      }),
+    ).toEqual({
+      gymId: "g1", clientId: "c1", membershipId: "m1", amount: 80000, date: "2026-11-06",
+      method: "CASH", status: "PAID", concept: "Mensualidad",
+    });
+    const att = mapRowToData("attendance", {
+      id: "a1", gym_id: "g1", client_id: "c1", date: "2026-11-06", check_in: "07:01:00",
+      check_out: null, status: "PRESENT", entry_method: "CODE", device_id: "tablet-1", notes: "x",
+    });
+    expect(att).toMatchObject({ gymId: "g1", clientId: "c1", date: "2026-11-06", checkIn: "07:01:00", checkOut: null });
+    expect(att).not.toHaveProperty("notes");
+    expect(att).not.toHaveProperty("deviceId");
   });
 
   it("gyms: incluye marca y logo, normaliza vacíos a null, NO toca licencia", () => {

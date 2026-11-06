@@ -246,6 +246,12 @@ pub(crate) fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0040_drop_library_sync_triggers.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 41,
+            description: "payments_attendance_sync",
+            sql: include_str!("../migrations/0041_payments_attendance_sync.sql"),
+            kind: MigrationKind::Up,
+        },
     ])
 }
 
