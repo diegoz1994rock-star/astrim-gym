@@ -1,9 +1,11 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+mod db_repair;
 mod lan_server;
 
-fn migrations() -> Vec<Migration> {
-    vec![
+/// Migraciones con SQL normalizado a LF (ver db_repair.rs).
+pub(crate) fn migrations() -> Vec<Migration> {
+    db_repair::normalize_migrations(vec![
         Migration {
             version: 1,
             description: "init_schema",
@@ -244,7 +246,7 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0040_drop_library_sync_triggers.sql"),
             kind: MigrationKind::Up,
         },
-    ]
+    ])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -259,6 +261,7 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            db_repair::prepare_database,
             lan_server::respond_lan_request,
             lan_server::get_local_lan_ip
         ])

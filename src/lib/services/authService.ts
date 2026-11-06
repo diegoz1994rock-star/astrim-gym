@@ -240,6 +240,25 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 }
 
+const SUSPENDED_MSG =
+  "El acceso de este gimnasio está suspendido. Contactá a soporte de ASTRIM GYM.";
+const EXPIRED_MSG =
+  "La licencia de este gimnasio venció. Contactá a soporte de ASTRIM GYM para renovarla.";
+
+/**
+ * Revisión de licencia con la sesión ya abierta (el panel puede quedar
+ * prendido días seguidos). Refresca desde la nube si hay internet y
+ * devuelve el motivo de bloqueo, o null si la licencia sigue vigente.
+ */
+export async function checkGymLicense(gymId: string): Promise<string | null> {
+  if (isCloudConfigured) await refreshLocalLicense(gymId);
+  const gym = await findGymById(gymId);
+  if (!gym) return null;
+  if (gym.license_status === "SUSPENDED" || gym.license_status === "CANCELLED") return SUSPENDED_MSG;
+  if (isExpired(gym.license_expiration_date)) return EXPIRED_MSG;
+  return null;
+}
+
 export async function login(email: string, password: string): Promise<AuthUser> {
   const normalizedEmail = email.trim().toLowerCase();
   const localUser = await findUserByEmail(normalizedEmail);
@@ -306,14 +325,10 @@ export async function login(email: string, password: string): Promise<AuthUser> 
       throw new GymNotLinkedError("No encontramos tu gimnasio. Contactá a soporte de ASTRIM GYM.");
     }
     if (gym.license_status === "SUSPENDED" || gym.license_status === "CANCELLED") {
-      throw new GymSuspendedError(
-        "El acceso de este gimnasio está suspendido. Contactá a soporte de ASTRIM GYM.",
-      );
+      throw new GymSuspendedError(SUSPENDED_MSG);
     }
     if (isExpired(gym.license_expiration_date)) {
-      throw new GymSuspendedError(
-        "La licencia de este gimnasio venció. Contactá a soporte de ASTRIM GYM para renovarla.",
-      );
+      throw new GymSuspendedError(EXPIRED_MSG);
     }
     gymName = gym.name;
     gymLogoPath = gym.logo_path;

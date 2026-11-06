@@ -1,0 +1,3 @@
+# Las migraciones SQL se embeben en el binario (include_str!) y sqlx guarda su
+# checksum: deben tener siempre LF, compile donde compile (ver db_repair.rs).
+*.sql text eol=lf
