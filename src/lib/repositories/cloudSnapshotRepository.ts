@@ -26,6 +26,8 @@ const QUERIES: Record<OutboxEntity, string> = {
     SELECT m.*, p.name AS plan_name
     FROM memberships m LEFT JOIN membership_plans p ON p.id = m.plan_id
     WHERE m.id = $1`,
+  payments: `SELECT * FROM payments WHERE id = $1`,
+  attendance: `SELECT * FROM attendance WHERE id = $1`,
   exercises: `SELECT * FROM exercises WHERE id = $1`,
   exercise_library: `SELECT * FROM exercises WHERE id = $1`,
   exercise_video: `SELECT * FROM exercise_videos WHERE id = $1`,

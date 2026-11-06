@@ -7,6 +7,7 @@ import { isCloudConfigured } from "@/lib/cloud/firebase";
 import { currentCloudUser, onCloudAuthChanged, signInGymOwner, signOutCloud } from "@/lib/cloud/cloudAuth";
 import { seedExerciseLibrary } from "@/lib/cloud/seedExerciseLibrary";
 import { restoreFromCloud, type RestoreSummary } from "@/lib/cloud/cloudRestoreService";
+import { RestoreSummaryText } from "@/components/RestoreSummaryText";
 import { buildOptimizedLogoBase64 } from "@/lib/cloud/logoImage";
 import * as outboxRepository from "@/lib/repositories/outboxRepository";
 import * as gymRepository from "@/lib/repositories/gymRepository";
@@ -39,6 +40,7 @@ export function CloudTab({ gymId }: CloudTabProps) {
   const [restoreConfirm, setRestoreConfirm] = useState(false);
   const [restoreResult, setRestoreResult] = useState<RestoreSummary | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreProgress, setRestoreProgress] = useState<string | null>(null);
 
   const [brandColor, setBrandColor] = useState("");
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export function CloudTab({ gymId }: CloudTabProps) {
     setRestoreError(null);
     setRestoreResult(null);
     try {
-      const result = await restoreFromCloud(gymId);
+      const result = await restoreFromCloud(gymId, setRestoreProgress);
       setRestoreResult(result);
       setRestoreConfirm(false);
       await refreshStats();
@@ -154,6 +156,7 @@ export function CloudTab({ gymId }: CloudTabProps) {
       setRestoreError(err instanceof Error ? err.message : "No se pudo restaurar desde la nube.");
     } finally {
       setRestoreBusy(false);
+      setRestoreProgress(null);
     }
   }
 
@@ -344,12 +347,11 @@ export function CloudTab({ gymId }: CloudTabProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              Si formateaste o cambiaste de computadora: instalá el panel, iniciá sesión con la
-              cuenta de la nube y usá esto para traer de vuelta desde Firebase{" "}
-              <strong>entrenadores, clientes (con su usuario y contraseña de la app), ejercicios del
-              gimnasio, rutinas y planes de alimentación</strong>. No trae historial ni membresías,
-              pagos, asistencias, medidas ni asignaciones — eso queda en la nube pero no se descarga.
-              No pisa nada que ya tengas cargado.
+              En una computadora nueva esto se hace solo al iniciar sesión. Usalo si querés
+              volver a traer desde la nube <strong>todo el gimnasio</strong>: entrenadores, clientes
+              (con su cuenta de la app y su código de asistencia), membresías, pagos, asistencias,
+              medidas, rutinas, clases, planes de alimentación y sus asignaciones. No pisa nada que
+              ya tengas cargado. No se recuperan fotos ni rostros (nunca salen de esta PC).
             </p>
 
             {!restoreConfirm ? (
@@ -393,20 +395,12 @@ export function CloudTab({ gymId }: CloudTabProps) {
                   <CheckCircle2 className="h-4 w-4" />
                   Restauración completa
                 </span>
-                <span className="text-foreground">
-                  {restoreResult.trainers} entrenadores · {restoreResult.clients} clientes ·{" "}
-                  {restoreResult.exercises} ejercicios · {restoreResult.routines} rutinas (
-                  {restoreResult.routineExercises} ejercicios) · {restoreResult.mealPlans} planes de
-                  alimentación ({restoreResult.mealPlanItems} items, {restoreResult.mealPlanTargets}{" "}
-                  metas)
+                <span className="flex flex-col gap-1 text-foreground">
+                  <RestoreSummaryText summary={restoreResult} />
                 </span>
-                {restoreResult.errors.length > 0 && (
-                  <span className="text-warning">
-                    Con avisos: {restoreResult.errors.join(" · ")}
-                  </span>
-                )}
               </div>
             )}
+            {restoreProgress && <p className="text-sm text-muted-foreground">{restoreProgress}</p>}
             {restoreError && <p className="text-sm text-danger">{restoreError}</p>}
           </CardContent>
         </Card>

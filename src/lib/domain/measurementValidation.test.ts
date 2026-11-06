@@ -50,7 +50,9 @@ describe("validateMeasurementForm", () => {
   });
 
   it("rechaza una fecha futura", () => {
-    const input = { ...emptyMeasurementForm("client_1"), date: "2026-09-15" };
+    // Siempre 10 días después de hoy (una fecha fija deja de ser futura).
+    const future = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 10);
+    const input = { ...emptyMeasurementForm("client_1"), date: future.toLocaleDateString("en-CA") };
     const errors = validateMeasurementForm(input, TODAY);
     expect(errors.date).toBeDefined();
   });

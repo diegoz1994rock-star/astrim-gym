@@ -16,6 +16,8 @@ export type OutboxEntity =
   | "membership_plans"
   | "clients"
   | "memberships"
+  | "payments"
+  | "attendance"
   | "exercises"
   | "exercise_library"
   | "exercise_video"
@@ -108,6 +110,10 @@ export function cloudPath(entity: OutboxEntity, entityId: string, payload: Outbo
       return ["clients", entityId];
     case "memberships":
       return ["clients", clientId(), "memberships", entityId];
+    case "payments":
+      return ["clients", clientId(), "payments", entityId];
+    case "attendance":
+      return ["clients", clientId(), "attendance", entityId];
     case "routine_assignments":
       return ["clients", clientId(), "routineAssignments", entityId];
     case "class_enrollments":
@@ -312,6 +318,11 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         // PC (ver cloudRestoreService). Es el propio uid del cliente, no un
         // dato sensible.
         cloudUid: s(row.cloud_uid),
+        // Código numérico del kiosco de recepción. Viaja para que, al
+        // restaurar en una PC nueva, los clientes sigan marcando asistencia
+        // con el mismo código. Solo lo leen el propio cliente y el ADMIN
+        // de su gimnasio (firestore.rules).
+        attendanceCode: s(row.attendance_code),
       };
     case "memberships":
       return {
@@ -324,6 +335,30 @@ export function mapRowToData(entity: OutboxEntity, row: Row): Record<string, unk
         price: n(row.price),
         paymentStatus: s(row.payment_status),
         manualStatus: s(row.manual_status),
+        method: s(row.method),
+      };
+    case "payments":
+      return {
+        gymId: s(row.gym_id),
+        clientId: s(row.client_id),
+        membershipId: s(row.membership_id),
+        amount: n(row.amount),
+        date: s(row.date),
+        method: s(row.method),
+        status: s(row.status),
+        concept: s(row.concept),
+      };
+    case "attendance":
+      return {
+        gymId: s(row.gym_id),
+        clientId: s(row.client_id),
+        membershipId: s(row.membership_id),
+        date: s(row.date),
+        checkIn: s(row.check_in),
+        checkOut: s(row.check_out),
+        status: s(row.status),
+        entryMethod: s(row.entry_method),
+        exitMethod: s(row.exit_method),
       };
     case "class_enrollments":
       return {
