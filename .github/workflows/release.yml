@@ -101,6 +101,10 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
       - uses: android-actions/setup-android@v3
+        with:
+          # Por defecto instala 'tools', que Google ya quitó del repositorio
+          # del SDK y hace fallar el paso. Solo hace falta platform-tools.
+          packages: platform-tools
       - name: Instalar NDK
         run: sdkmanager --install "ndk;27.2.12479018"
       - name: Instalar dependencias
