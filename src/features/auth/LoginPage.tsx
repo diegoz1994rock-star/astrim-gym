@@ -22,6 +22,28 @@ interface RememberedCredentials {
   password: string;
 }
 
+function readableLoginError(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const details = error as Record<string, unknown>;
+    for (const key of ["message", "error", "reason", "detail", "details", "cause", "code"]) {
+      const value = details[key];
+      if (typeof value === "string" && value.trim()) return value;
+      if (value && typeof value === "object") {
+        const nested = value as { message?: unknown; code?: unknown };
+        if (typeof nested.message === "string" && nested.message.trim()) return nested.message;
+        if (typeof nested.code === "string" && nested.code.trim()) return nested.code;
+      }
+    }
+    const fields = Object.getOwnPropertyNames(error);
+    if (fields.length) {
+      return `Error local (${Object.prototype.toString.call(error)}; campos: ${fields.join(", ")}).`;
+    }
+  }
+  return "No se pudo iniciar sesión.";
+}
+
 function loadRememberedCredentials(): RememberedCredentials | null {
   try {
     const raw = localStorage.getItem(REMEMBER_KEY);
@@ -46,12 +68,12 @@ function saveRememberedCredentials(creds: RememberedCredentials | null): void {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, sessionEndedReason } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(sessionEndedReason);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMsg, setResetMsg] = useState<string | null>(null);
@@ -74,7 +96,7 @@ export function LoginPage() {
       await login(email, password);
       saveRememberedCredentials(remember ? { email, password } : null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
+      setError(readableLoginError(err));
     } finally {
       setIsSubmitting(false);
     }

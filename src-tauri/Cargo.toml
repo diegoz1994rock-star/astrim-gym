@@ -28,3 +28,9 @@ serde_json = "1"
 tiny_http = "0.12"
 uuid = { version = "1", features = ["v4"] }
 
+
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
